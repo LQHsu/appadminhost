@@ -1,0 +1,31 @@
+<div class="min-h-screen bg-slate-100 flex items-center justify-center p-4">
+  <div class="bg-white rounded-lg shadow p-8 w-full max-w-sm">
+    <h1 class="text-lg font-semibold text-slate-800 mb-1">Control de Acceso — Hostal</h1>
+    <p class="text-sm text-slate-500 mb-6">Ingresa la clave de acceso para continuar.</p>
+
+    <form (ngSubmit)="entrar()" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Clave de acceso</label>
+        <input
+          type="password"
+          name="clave"
+          [(ngModel)]="clave"
+          autofocus
+          class="w-full rounded border-slate-300 focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+        />
+      </div>
+
+      @if (authService.error()) {
+        <p class="text-sm text-red-600">{{ authService.error() }}</p>
+      }
+
+      <button
+        type="submit"
+        [disabled]="authService.verificando()"
+        class="w-full px-4 py-2 rounded bg-sky-600 text-white text-sm font-medium hover:bg-sky-700 disabled:opacity-50"
+      >
+        {{ authService.verificando() ? 'Verificando...' : 'Entrar' }}
+      </button>
+    </form>
+  </div>
+</div>

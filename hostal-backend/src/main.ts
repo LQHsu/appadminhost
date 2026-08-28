@@ -1,9 +1,21 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
+import { ApiKeyGuard } from './common/api-key.guard';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // En producción (Postgres) SIEMPRE debe haber APP_KEY configurada —
+  // si falta, la API queda completamente pública para cualquiera con
+  // la URL. Este warning es la única señal de que alguien la olvidó.
+  if (process.env.DATABASE_URL && !process.env.APP_KEY) {
+    console.warn(
+      '⚠️  ADVERTENCIA: corriendo contra Postgres sin APP_KEY configurada — la API queda sin protección.',
+    );
+  }
+
+  app.useGlobalGuards(new ApiKeyGuard());
 
   // Valida automáticamente todos los DTOs (equivalente global a tus
   // Reactive Forms validators, pero del lado del servidor). whitelist
