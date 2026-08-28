@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: hostal-backend
+    runtime: node
+    rootDir: hostal-backend
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start:prod
+    envVars:
+      - key: DATABASE_URL
+        sync: false # secreto: se pega a mano en el dashboard de Render, no vive en este archivo
