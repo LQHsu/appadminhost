@@ -1,0 +1,37 @@
+/* You can add global styles to this file, and also import other style files */
+
+@import 'tailwindcss';
+
+/* Exportar a PDF = usar el "Imprimir > Guardar como PDF" del navegador
+   sobre una sola sección de la página (ej. el reporte diario), en vez
+   de instalar una librería de PDF. `.reporte-diario-print` marca esa
+   sección: al imprimir, se oculta todo lo demás (nav, otras tarjetas
+   de la pestaña) y solo queda visible ella. Dentro de esa sección,
+   `.no-imprimir` oculta controles interactivos (inputs, botones) y
+   `.solo-imprimir` muestra en su lugar el mismo dato en texto plano. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .reporte-diario-print,
+  .reporte-diario-print * {
+    visibility: visible;
+  }
+  .reporte-diario-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    box-shadow: none !important;
+  }
+  .no-imprimir {
+    display: none !important;
+  }
+  .solo-imprimir {
+    display: block !important;
+  }
+}
+
+.solo-imprimir {
+  display: none;
+}

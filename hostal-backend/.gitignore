@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+
+# Base local de desarrollo (en producción vive en Postgres, no en git)
+hostal.sqlite
+hostal.sqlite-journal
+
+# Secretos locales — en Render se configuran como variables de entorno
+.env
+.env.local
+
+*.log

@@ -1,0 +1,22 @@
+<div class="bg-white rounded-lg shadow p-6">
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="text-lg font-semibold text-slate-800">Disponibilidad por habitación</h2>
+    <span class="text-sm text-slate-500">Camas libres en total: <strong>{{ totalDisponibles() }}</strong></span>
+  </div>
+
+  <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+    @for (h of habitacionesService.disponibilidad(); track h.id) {
+      <div class="border rounded-lg p-3"
+           [class.border-emerald-300]="h.camasDisponibles > 0"
+           [class.bg-emerald-50]="h.camasDisponibles > 0"
+           [class.border-red-300]="h.camasDisponibles === 0"
+           [class.bg-red-50]="h.camasDisponibles === 0">
+        <p class="text-xs text-slate-500">Piso {{ h.piso }}</p>
+        <p class="font-semibold text-slate-800">Hab. {{ h.numero }}</p>
+        <p class="text-sm mt-1">{{ h.camasDisponibles }} / {{ h.camasTotales }} camas libres</p>
+      </div>
+    } @empty {
+      <p class="text-slate-500 text-sm col-span-full">No hay habitaciones registradas todavía.</p>
+    }
+  </div>
+</div>

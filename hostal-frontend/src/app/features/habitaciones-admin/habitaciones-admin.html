@@ -1,0 +1,33 @@
+<div class="bg-white rounded-lg shadow p-6">
+  <h2 class="text-lg font-semibold text-slate-800 mb-4">Habitaciones</h2>
+
+  <form [formGroup]="form" (ngSubmit)="crear()" class="flex flex-wrap items-end gap-3 mb-6">
+    <div>
+      <label class="block text-sm font-medium text-slate-600 mb-1">Piso</label>
+      <input formControlName="piso" type="number" min="1" class="w-20 rounded border-slate-300" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-slate-600 mb-1">Número</label>
+      <input formControlName="numero" type="text" class="w-24 rounded border-slate-300" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-slate-600 mb-1">Camas totales</label>
+      <input formControlName="camasTotales" type="number" min="1" class="w-24 rounded border-slate-300" />
+    </div>
+    <button type="submit" class="px-4 py-2 rounded bg-sky-600 text-white text-sm font-medium hover:bg-sky-700">
+      Agregar habitación
+    </button>
+  </form>
+
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+    @for (h of habitacionesService.habitaciones(); track h.id) {
+      <div class="border rounded-lg p-3">
+        <p class="text-xs text-slate-500">Piso {{ h.piso }}</p>
+        <p class="font-semibold text-slate-800">Hab. {{ h.numero }}</p>
+        <p class="text-sm text-slate-500">{{ h.camasTotales }} camas</p>
+      </div>
+    } @empty {
+      <p class="text-slate-500 text-sm col-span-full">Aún no hay habitaciones. Agrega la primera arriba.</p>
+    }
+  </div>
+</div>

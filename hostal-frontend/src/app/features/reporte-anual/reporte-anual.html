@@ -1,0 +1,125 @@
+<div class="bg-white rounded-lg shadow p-6">
+  <div class="flex flex-wrap items-end justify-between gap-3 mb-4">
+    <h2 class="text-lg font-semibold text-slate-800">Reporte anual</h2>
+    <div class="flex items-end gap-2">
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Año</label>
+        <input type="number" [ngModel]="anio()" (ngModelChange)="anio.set($event)"
+               class="w-28 rounded border-slate-300" />
+      </div>
+      <button (click)="consultar()"
+              class="px-4 py-2 rounded bg-sky-600 text-white text-sm font-medium hover:bg-sky-700">
+        Consultar
+      </button>
+    </div>
+  </div>
+
+  @if (historialService.reporteAnual(); as r) {
+    <!-- Tabla mensual -->
+    <div class="overflow-x-auto mb-8">
+      <table class="w-full text-sm text-left">
+        <thead class="text-slate-500 border-b">
+          <tr>
+            <th class="py-2 pr-3">Mes</th>
+            <th class="py-2 pr-3 text-right">Ingresos totales</th>
+            <th class="py-2 pr-3 text-right">Efectivo</th>
+            <th class="py-2 pr-3 text-right">Tarjeta</th>
+            <th class="py-2 pr-3 text-right">N° huéspedes</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (m of r.meses; track m.mes) {
+            <tr class="border-b last:border-0">
+              <td class="py-2 pr-3">{{ nombresMes[m.mes - 1] }}</td>
+              <td class="py-2 pr-3 text-right">{{ m.totalIngresos | currency:'MXN' }}</td>
+              <td class="py-2 pr-3 text-right">{{ m.efectivo | currency:'MXN' }}</td>
+              <td class="py-2 pr-3 text-right">{{ m.tarjeta | currency:'MXN' }}</td>
+              <td class="py-2 pr-3 text-right">{{ m.numeroHuespedes }}</td>
+            </tr>
+          }
+        </tbody>
+        <tfoot>
+          <tr class="border-t-2 border-slate-300 font-semibold text-slate-800">
+            <td class="py-2 pr-3">Total anual</td>
+            <td class="py-2 pr-3 text-right">{{ r.totalAnual.totalIngresos | currency:'MXN' }}</td>
+            <td class="py-2 pr-3 text-right">{{ r.totalAnual.efectivo | currency:'MXN' }}</td>
+            <td class="py-2 pr-3 text-right">{{ r.totalAnual.tarjeta | currency:'MXN' }}</td>
+            <td class="py-2 pr-3 text-right">{{ r.totalAnual.numeroHuespedes }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <!-- Gráfico de barras: efectivo vs tarjeta por mes -->
+      <div class="lg:col-span-2">
+        <h3 class="text-sm font-semibold text-slate-700 mb-2">Ganancias por mes: efectivo vs tarjeta</h3>
+
+        <!-- Leyenda -->
+        <div class="flex gap-4 mb-2 text-xs text-slate-600">
+          <span class="flex items-center gap-1">
+            <span class="inline-block w-3 h-3 rounded-sm" [style.background]="colorEfectivo"></span>
+            Efectivo
+          </span>
+          <span class="flex items-center gap-1">
+            <span class="inline-block w-3 h-3 rounded-sm" [style.background]="colorTarjeta"></span>
+            Tarjeta
+          </span>
+        </div>
+
+        <svg [attr.viewBox]="chartViewBox" class="w-full h-64" role="img" aria-label="Barras de ingresos por mes">
+          @for (b of barras(); track b.mes) {
+            <!-- barra efectivo -->
+            <rect [attr.x]="b.xEfectivo" [attr.y]="b.yEfectivo" [attr.width]="b.barWidth"
+                  [attr.height]="b.alturaEfectivo" rx="3" [attr.fill]="colorEfectivo"
+                  (mouseenter)="hoverIndex.set(b.mes)" (mouseleave)="hoverIndex.set(null)">
+              <title>{{ b.label }} — Efectivo: {{ b.efectivo | currency:'MXN' }}</title>
+            </rect>
+            <!-- barra tarjeta -->
+            <rect [attr.x]="b.xTarjeta" [attr.y]="b.yTarjeta" [attr.width]="b.barWidth"
+                  [attr.height]="b.alturaTarjeta" rx="3" [attr.fill]="colorTarjeta"
+                  (mouseenter)="hoverIndex.set(b.mes)" (mouseleave)="hoverIndex.set(null)">
+              <title>{{ b.label }} — Tarjeta: {{ b.tarjeta | currency:'MXN' }}</title>
+            </rect>
+            <!-- etiqueta del mes -->
+            <text [attr.x]="b.xLabel" [attr.y]="chartHeightPublic + 16" text-anchor="middle"
+                  class="fill-slate-500" font-size="10">
+              {{ b.label }}
+            </text>
+          }
+          <!-- línea base -->
+          <line x1="0" [attr.y1]="chartHeightPublic" [attr.x2]="760" [attr.y2]="chartHeightPublic"
+                stroke="#e2e8f0" stroke-width="1" />
+        </svg>
+      </div>
+
+      <!-- Gráfico de pie: efectivo vs tarjeta (acumulado anual) -->
+      <div>
+        <h3 class="text-sm font-semibold text-slate-700 mb-2">Efectivo vs tarjeta (año completo)</h3>
+
+        @if (pieSlices().length > 0) {
+          <svg viewBox="0 0 180 180" class="w-full max-w-[220px] mx-auto" role="img" aria-label="Efectivo vs tarjeta">
+            @for (s of pieSlices(); track s.label) {
+              <path [attr.d]="s.path" [attr.fill]="s.color" stroke="#ffffff" stroke-width="2">
+                <title>{{ s.label }}: {{ s.valor | currency:'MXN' }} ({{ (s.porcentaje * 100) | number: '1.0-1' }}%)</title>
+              </path>
+            }
+          </svg>
+
+          <div class="flex flex-col items-center gap-1 mt-3 text-xs text-slate-600">
+            @for (s of pieSlices(); track s.label) {
+              <span class="flex items-center gap-1">
+                <span class="inline-block w-3 h-3 rounded-sm" [style.background]="s.color"></span>
+                {{ s.label }}: {{ (s.porcentaje * 100) | number: '1.0-1' }}%
+              </span>
+            }
+          </div>
+        } @else {
+          <p class="text-slate-500 text-sm">Sin ingresos registrados este año.</p>
+        }
+      </div>
+    </div>
+  } @else {
+    <p class="text-slate-500 text-sm">Consulta un año para ver el reporte.</p>
+  }
+</div>

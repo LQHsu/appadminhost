@@ -1,0 +1,211 @@
+<form [formGroup]="form" (ngSubmit)="intentarEnviar()" class="bg-white rounded-lg shadow p-6 space-y-4">
+  <h2 class="text-lg font-semibold text-slate-800">Nuevo registro de acceso</h2>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div>
+      <label class="block text-sm font-medium text-slate-600 mb-1">Nombre del cliente</label>
+      <input
+        formControlName="nombreCliente"
+        type="text"
+        class="w-full rounded border-slate-300 focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+      />
+      @if (form.get('nombreCliente')?.invalid && form.get('nombreCliente')?.touched) {
+        <p class="text-xs text-red-600 mt-1">El nombre del cliente es requerido</p>
+      }
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-slate-600 mb-1">Habitación</label>
+      <select
+        formControlName="habitacionId"
+        class="w-full rounded border-slate-300 focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+      >
+        <option [ngValue]="0" disabled>Selecciona una habitación</option>
+        @for (h of habitacionesService.disponibilidad(); track h.id) {
+          <option [ngValue]="h.id" [disabled]="h.camasDisponibles === 0">
+            Piso {{ h.piso }} - Hab. {{ h.numero }} ({{ h.camasDisponibles }}/{{ h.camasTotales }} camas libres)
+          </option>
+        }
+      </select>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-slate-600 mb-1">Camas solicitadas</label>
+      <input
+        formControlName="camasSolicitadas"
+        type="number"
+        min="1"
+        class="w-full rounded border-slate-300 focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+      />
+      @if (form.get('camasSolicitadas')?.invalid && form.get('camasSolicitadas')?.touched) {
+        <p class="text-xs text-red-600 mt-1">
+          El numero de camas es requerido y debe ser mayor a 0
+        </p>
+      }
+
+      @if(form.errors?.['camasInsuficientes']; as err){
+        <p class="text-xs text-red-600 mt-1">
+          No hay suficientes camas disponibles complete con un nuevo registro en otra habitación
+        </p>
+      }
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-slate-600 mb-1">Costo por cama</label>
+      <input
+        formControlName="costoPorCama"
+        type="number"
+        min="0"
+        step="0.01"
+        class="w-full rounded border-slate-300 focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+      />
+      @if (form.get('costoPorCama')?.invalid && form.get('costoPorCama')?.touched) {
+        <p class="text-xs text-red-600 mt-1">
+          El costo por cama es requerido y debe ser mayor o igual a 0
+        </p>
+      }
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-slate-600 mb-1">Noches</label>
+      <input
+        formControlName="noches"
+        type="number"
+        min="1"
+        class="w-full rounded border-slate-300 focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+      />
+      @if (form.get('noches')?.invalid && form.get('noches')?.touched) {
+        <p class="text-xs text-red-600 mt-1">
+          El numero de noches es requerido y debe ser mayor o igual a 1
+        </p>
+      }
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-slate-600 mb-1">Otro cobro</label>
+      <input
+        formControlName="otroCobro"
+        type="number"
+        min="0"
+        step="0.01"
+        class="w-full rounded border-slate-300 focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+      />
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-slate-600 mb-1">Documento de identidad</label>
+      <input
+        formControlName="documentoIdentidad"
+        type="text"
+        class="w-full rounded border-slate-300 focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+      />
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-slate-600 mb-1">Método de pago</label>
+      <select
+        formControlName="metodoPago"
+        class="w-full rounded border-slate-300 focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+      >
+        <option value="EFECTIVO">Efectivo</option>
+        <option value="TARJETA">Tarjeta</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-slate-600 mb-1">Atendió</label>
+      <input
+        formControlName="atendio"
+        type="text"
+        class="w-full rounded border-slate-300 focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+      />
+      @if(form.get('atendio')?.invalid && form.get('atendio')?.touched){
+        <p class="text-xs text-red-600 mt-1">El nombre del atendio es requerido</p>
+      }
+    </div>
+  </div>
+
+  @if (mensajeError) {
+    <p class="text-sm text-red-600">{{ mensajeError }}</p>
+  }
+
+  <button
+    type="submit"
+    [disabled]="enviando"
+    class="w-full sm:w-auto px-5 py-2 rounded bg-sky-600 text-white font-medium hover:bg-sky-700 disabled:opacity-50"
+  >
+    {{ enviando ? 'Guardando...' : 'Registrar check-in' }}
+  </button>
+</form>
+
+<!-- Los modales van FUERA del <form>: si quedan adentro, sus botones
+     (sin type="button") disparan un submit nativo del formulario al
+     hacer clic, además de emitir su propio evento. -->
+<app-confirm-modal
+  [visible]="mostrarConfirmacion()"
+  titulo="Confirmar registro"
+  textoConfirmar="Confirmar check-in"
+  textoCancelar="Cancelar"
+  (confirmar)="confirmarEnvio()"
+  (cancelar)="cancelarEnvio()"
+>
+  <!-- Contenido proyectado: lo más importante (destino, total, camas)
+       grande y arriba; lo secundario (documento, método, atendió)
+       chico y agrupado abajo, para que el ojo vaya directo a lo que
+       importa antes de confirmar el cobro. -->
+  <div class="space-y-4">
+    <div>
+      <p class="text-xs text-slate-500 uppercase tracking-wide">Huésped</p>
+      <p class="text-base font-semibold text-slate-800">{{ form.value.nombreCliente }}</p>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
+      <div class="bg-sky-50 border border-sky-100 rounded-lg p-3">
+        <p class="text-xs text-sky-700">Camas solicitadas</p>
+        <p class="text-2xl font-bold text-sky-900">{{ form.value.camasSolicitadas }}</p>
+        @if (habitacionSeleccionada(); as h) {
+          <p class="text-xs text-sky-700 mt-0.5">Piso {{ h.piso }} · Hab. {{ h.numero }}</p>
+        }
+      </div>
+
+      <div class="bg-emerald-50 border border-emerald-100 rounded-lg p-3">
+        <p class="text-xs text-emerald-700">Total a cobrar</p>
+        <p class="text-2xl font-bold text-emerald-900">{{ totalPreview() | currency: 'MXN' }}</p>
+      </div>
+    </div>
+
+    <div class="bg-amber-50 border border-amber-100 rounded-lg p-3">
+      <p class="text-xs text-amber-700">Check-out estimado</p>
+      <p class="text-lg font-semibold text-amber-900">{{ previewCheckOut() | date: 'EEEE d MMMM, HH:mm' }}</p>
+    </div>
+
+    <!-- Info secundaria: mismo bloque pero deliberadamente menos
+         llamativo (texto chico, gris, sin tarjetas de color). -->
+    <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-500 border-t pt-3">
+      <dt>Documento</dt>
+      <dd class="text-slate-700 text-right">{{ form.value.documentoIdentidad }}</dd>
+      <dt>Método de pago</dt>
+      <dd class="text-slate-700 text-right">{{ form.value.metodoPago }}</dd>
+      <dt>Costo por cama</dt>
+      <dd class="text-slate-700 text-right">{{ form.value.costoPorCama | currency: 'MXN' }}</dd>
+      <dt>Noches</dt>
+      <dd class="text-slate-700 text-right">{{ form.value.noches }}</dd>
+      @if (form.value.otroCobro) {
+        <dt>Otro cobro</dt>
+        <dd class="text-slate-700 text-right">{{ form.value.otroCobro | currency: 'MXN' }}</dd>
+      }
+      <dt>Atendió</dt>
+      <dd class="text-slate-700 text-right">{{ form.value.atendio }}</dd>
+    </dl>
+  </div>
+</app-confirm-modal>
+
+<app-confirm-modal
+  [visible]="mostrarExito()"
+  titulo="Registro exitoso"
+  mensaje="El check-in se guardó correctamente."
+  textoConfirmar="Aceptar"
+  textoCancelar=""
+  (confirmar)="cerrarExito()"
+  (cancelar)="cerrarExito()"
+/>

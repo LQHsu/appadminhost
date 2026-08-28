@@ -1,0 +1,150 @@
+<div class="bg-white rounded-lg shadow p-6 reporte-diario-print">
+  <div class="flex flex-wrap items-end justify-between gap-3 mb-4 no-imprimir">
+    <h2 class="text-lg font-semibold text-slate-800">Reporte diario</h2>
+    <div class="flex flex-wrap items-end gap-2">
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Desde</label>
+        <input type="date" [ngModel]="desde()" (ngModelChange)="desde.set($event)"
+               class="rounded border-slate-300" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Hasta</label>
+        <input type="date" [ngModel]="hasta()" (ngModelChange)="hasta.set($event)"
+               class="rounded border-slate-300" />
+      </div>
+      <button (click)="consultar()"
+              class="px-4 py-2 rounded bg-sky-600 text-white text-sm font-medium hover:bg-sky-700">
+        Consultar
+      </button>
+      <button (click)="imprimir()"
+              class="px-4 py-2 rounded bg-slate-700 text-white text-sm font-medium hover:bg-slate-800">
+        Exportar a PDF
+      </button>
+    </div>
+  </div>
+
+  @if (historialService.reporteDiario(); as r) {
+    <!-- Encabezado: solo aparece al imprimir, ya que en pantalla el
+         título "Reporte diario" de arriba (no-imprimir) cumple ese rol. -->
+    <div class="solo-imprimir mb-4">
+      <h2 class="text-lg font-semibold text-slate-800">Corte de caja</h2>
+    </div>
+    <p class="text-sm text-slate-500 mb-4">{{ rangoTexto() }}</p>
+
+    <!-- Recuadros de resumen (mismo formato que el reporte mensual) -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+      <div class="border rounded-lg p-3">
+        <p class="text-xs text-slate-500">Ingresos totales</p>
+        <p class="text-xl font-semibold text-slate-800">{{ r.resumen.totalIngresos | currency: 'MXN' }}</p>
+      </div>
+      <div class="border rounded-lg p-3">
+        <p class="text-xs text-slate-500">Efectivo</p>
+        <p class="text-xl font-semibold text-slate-800">{{ r.resumen.efectivo | currency: 'MXN' }}</p>
+      </div>
+      <div class="border rounded-lg p-3">
+        <p class="text-xs text-slate-500">Tarjeta</p>
+        <p class="text-xl font-semibold text-slate-800">{{ r.resumen.tarjeta | currency: 'MXN' }}</p>
+      </div>
+      <div class="border rounded-lg p-3">
+        <p class="text-xs text-slate-500">N° huéspedes</p>
+        <p class="text-xl font-semibold text-slate-800">{{ r.resumen.numeroHuespedes }}</p>
+      </div>
+    </div>
+
+    <!-- Tabla de movimientos del rango: nombre, evento, periodo, monto, cuarto -->
+    @if (r.filas.length === 0) {
+      <p class="text-slate-500 text-sm mb-6">No hay movimientos en este rango de fechas.</p>
+    } @else {
+      <div class="overflow-x-auto mb-6">
+        <table class="w-full text-sm text-left">
+          <thead class="text-slate-500 border-b">
+            <tr>
+              <th class="py-2 pr-3">Nombre</th>
+              <th class="py-2 pr-3">Evento</th>
+              <th class="py-2 pr-3">Periodo</th>
+              <th class="py-2 pr-3 text-right">Monto</th>
+              <th class="py-2 pr-3">Cuarto</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (f of r.filas; track f.id) {
+              <tr class="border-b last:border-0">
+                <td class="py-2 pr-3">{{ f.nombreCliente }}</td>
+                <td class="py-2 pr-3">
+                  <span class="px-2 py-1 rounded text-xs font-medium no-imprimir" [class]="claseTipo(f.tipo)">
+                    {{ etiquetaTipo(f.tipo) }}
+                  </span>
+                  <span class="solo-imprimir">{{ etiquetaTipo(f.tipo) }}</span>
+                </td>
+                <td class="py-2 pr-3">
+                  {{ f.periodoDesde | date: 'short' }} al {{ f.periodoHasta | date: 'short' }}
+                </td>
+                <td class="py-2 pr-3 text-right">{{ f.totalCobrado | currency: 'MXN' }}</td>
+                <td class="py-2 pr-3">P{{ f.piso }} - {{ f.habitacionNumero }}</td>
+              </tr>
+            }
+          </tbody>
+          <tfoot>
+            <tr class="border-t-2 border-slate-300 font-semibold text-slate-800">
+              <td class="py-2 pr-3" colspan="3">Total del periodo</td>
+              <td class="py-2 pr-3 text-right">{{ r.resumen.totalIngresos | currency: 'MXN' }}</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    }
+
+    <!-- Corte de caja: a quién se entrega, cuánto, quién entrega, y el
+         total que calculó el sistema para comparar. -->
+    <div class="border-t pt-4 mt-2">
+      <h3 class="text-sm font-semibold text-slate-700 mb-3 no-imprimir">Corte de caja</h3>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 no-imprimir">
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Se entrega a</label>
+          <input type="text" [ngModel]="entregadoA()" (ngModelChange)="entregadoA.set($event)"
+                 placeholder="Nombre de quien recibe" class="w-full rounded border-slate-300" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Cantidad entregada</label>
+          <input type="number" min="0" step="0.01" [ngModel]="cantidadEntregada()"
+                 (ngModelChange)="cantidadEntregada.set($event)" placeholder="0.00"
+                 class="w-full rounded border-slate-300" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Entregado por</label>
+          <input type="text" [ngModel]="entregadoPor()" (ngModelChange)="entregadoPor.set($event)"
+                 placeholder="Nombre de quien entrega" class="w-full rounded border-slate-300" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Total calculado por el sistema</label>
+          <input type="text" [value]="r.resumen.totalIngresos | currency: 'MXN'" disabled
+                 class="w-full rounded border-slate-200 bg-slate-50 text-slate-600" />
+        </div>
+      </div>
+
+      <!-- Misma info en texto plano, solo para el PDF -->
+      <div class="solo-imprimir text-sm text-slate-700 space-y-1">
+        <p>Se entrega a: <strong>{{ entregadoA() || '_______________' }}</strong></p>
+        <p>Cantidad entregada: <strong>{{ (cantidadEntregada() ?? 0) | currency: 'MXN' }}</strong></p>
+        <p>Total calculado por el sistema: <strong>{{ r.resumen.totalIngresos | currency: 'MXN' }}</strong></p>
+        <p>Entregado por: <strong>{{ entregadoPor() || '_______________' }}</strong></p>
+      </div>
+
+      <div class="mt-4 no-imprimir">
+        <label class="block text-xs font-medium text-slate-600 mb-1">Comentarios</label>
+        <textarea rows="3" [ngModel]="comentarios()" (ngModelChange)="comentarios.set($event)"
+                  class="w-full rounded border-slate-300"></textarea>
+      </div>
+
+      <!-- Los comentarios van hasta el final del PDF -->
+      <div class="solo-imprimir mt-8 pt-4 border-t text-xs text-slate-600">
+        <p class="font-semibold mb-1">Comentarios:</p>
+        <p class="whitespace-pre-wrap">{{ comentarios() || '—' }}</p>
+      </div>
+    </div>
+  } @else {
+    <p class="text-slate-500 text-sm">Consulta un rango de fechas para ver el reporte.</p>
+  }
+</div>

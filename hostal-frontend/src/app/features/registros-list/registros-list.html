@@ -1,0 +1,174 @@
+<div class="space-y-6">
+  <!-- Indicadores del día -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="bg-white rounded-lg shadow p-4 border-l-4 border-sky-500">
+      <p class="text-xs text-slate-500">Inquilinos activos</p>
+      <p class="text-2xl font-bold text-slate-800">{{ inquilinosActivos() }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4 border-l-4 border-amber-500">
+      <p class="text-xs text-slate-500">Deben hacer checkout</p>
+      <p class="text-2xl font-bold text-slate-800">{{ debenCheckout() }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4 border-l-4 border-emerald-500">
+      <p class="text-xs text-slate-500">Cuartos disponibles</p>
+      <p class="text-2xl font-bold text-slate-800">{{ cuartosDisponibles() }} / {{ totalCuartos() }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4 border-l-4 border-indigo-500">
+      <p class="text-xs text-slate-500">Camas disponibles</p>
+      <p class="text-2xl font-bold text-slate-800">{{ camasDisponibles() }} / {{ camasTotales() }}</p>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-lg shadow p-6">
+    <h2 class="text-lg font-semibold text-slate-800 mb-4">Registros activos</h2>
+
+    @if (registrosService.cargando()) {
+      <p class="text-slate-500 text-sm">Cargando...</p>
+    } @else if (registrosService.registros().length === 0) {
+      <p class="text-slate-500 text-sm">No hay huéspedes registrados actualmente.</p>
+    } @else {
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+          <thead class="text-slate-500 border-b">
+            <tr>
+              <th class="py-2 pr-3">N°</th>
+              <th class="py-2 pr-3">Cliente</th>
+              <th class="py-2 pr-3">Habitación</th>
+              <th class="py-2 pr-3">Camas asignadas</th>
+              <th class="py-2 pr-3">Check-in</th>
+              <th class="py-2 pr-3">Check-out est.</th>
+              <th class="py-2 pr-3">Total</th>
+              <th class="py-2 pr-3">Costo por cama</th>
+              <th class="py-2 pr-3">Otro cobro</th>
+              <th class="py-2 pr-3">Noches</th>
+              <th class="py-2 pr-3">Documento de identidad</th>
+              <th class="py-2 pr-3">Método de pago</th>
+              <th class="py-2 pr-3">Atendió</th>
+              <th class="py-2 pr-3">Status</th>
+              <th class="py-2 pr-3">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (r of registrosService.registros(); track r.id) {
+              <tr class="border-b last:border-0">
+                <td class="py-2 pr-3">{{ r.id }}</td>
+                <td class="py-2 pr-3">{{ r.nombreCliente }}</td>
+                <td class="py-2 pr-3">P{{ r.habitacion.piso }} - {{ r.habitacion.numero }}</td>
+                <td class="py-2 pr-3">{{ r.camasSolicitadas }}</td>
+                <td class="py-2 pr-3">{{ r.checkIn | date: 'short' }}</td>
+                <td class="py-2 pr-3">{{ r.checkOutEstimado | date: 'short' }}</td>
+                <td class="py-2 pr-3">${{ r.totalACobrar }}</td>
+                <td class="py-2 pr-3">${{ r.costoPorCama }}</td>
+                <td class="py-2 pr-3">${{ r.otroCobro }}</td>
+                <td class="py-2 pr-3">{{ r.noches }}</td>
+                <td class="py-2 pr-3">{{ r.documentoIdentidad }}</td>
+                <td class="py-2 pr-3">{{ r.metodoPago }}</td>
+                <td class="py-2 pr-3">{{ r.atendio }}</td>
+                <td class="py-2 pr-3">
+                  <span class="px-2 py-1 rounded text-xs font-medium" [class]="claseStatus(r.status)">
+                    {{ r.status }}
+                  </span>
+                </td>
+                <td class="py-2 pr-3 space-x-2 whitespace-nowrap">
+                  <button
+                    (click)="pedirConfirmacion('renovar', r)"
+                    class="text-sky-600 hover:underline text-xs"
+                  >
+                    Renovar
+                  </button>
+                  <button
+                    (click)="pedirConfirmacion('no-renovar', r)"
+                    class="text-amber-600 hover:underline text-xs"
+                  >
+                    No renovar
+                  </button>
+                  <button
+                    (click)="pedirConfirmacion('checkout', r)"
+                    class="text-red-600 hover:underline text-xs"
+                  >
+                    Checkout
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+
+    <app-confirm-modal
+      [visible]="accionPendiente() !== null"
+      [titulo]="tituloModal()"
+      textoConfirmar="Sí, confirmar"
+      textoCancelar="Cancelar"
+      (confirmar)="confirmarAccion()"
+      (cancelar)="cancelarAccion()"
+    >
+      @if (accionPendiente(); as p) {
+        <div class="space-y-3 text-sm">
+          <p class="text-slate-700">
+            Huésped: <span class="font-semibold">{{ p.registro.nombreCliente }}</span>
+          </p>
+          <p class="text-slate-700">
+            Habitación: P{{ p.registro.habitacion.piso }} - {{ p.registro.habitacion.numero }}
+          </p>
+
+          @if (p.tipo === 'checkout') {
+            <p class="text-slate-500 text-xs">El registro se moverá al historial y se liberarán sus camas.</p>
+
+            @if (p.registro.vencido) {
+              <p class="text-amber-600 text-xs font-medium">
+                El checkout estimado (12 pm) ya pasó — considera cobrar una multa.
+              </p>
+            }
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1">Otro cobro (extra)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  [ngModel]="otroCobroCheckout()"
+                  (ngModelChange)="otroCobroCheckout.set($event)"
+                  class="w-full rounded border-slate-300"
+                />
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1">Multa por checkout tardío</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  [ngModel]="multaTardio()"
+                  (ngModelChange)="multaTardio.set($event)"
+                  class="w-full rounded border-slate-300"
+                />
+              </div>
+            </div>
+            <p class="text-slate-500 text-xs">
+              Ambos son opcionales y se dejan en $0 si no aplica; se suman al total de la estadía.
+            </p>
+          } @else if (p.tipo === 'no-renovar') {
+            <p class="text-slate-500 text-xs">El huésped quedará marcado como "no renovó" (status NO).</p>
+          } @else {
+            <!-- tipo 'renovar': aquí es donde pedimos el dato extra -->
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">¿Cuántos días quiere renovar?</label>
+              <input
+                type="number"
+                min="1"
+                [ngModel]="diasRenovacion()"
+                (ngModelChange)="diasRenovacion.set($event)"
+                class="w-24 rounded border-slate-300"
+              />
+            </div>
+            <p class="text-slate-500 text-xs">
+              El check-out se recorrerá {{ diasRenovacion() }} día(s) y se sumará el cobro correspondiente.
+            </p>
+          }
+        </div>
+      }
+    </app-confirm-modal>
+  </div>
+</div>

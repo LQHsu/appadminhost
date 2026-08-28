@@ -1,0 +1,95 @@
+<div class="space-y-6">
+  <div class="bg-white rounded-lg shadow p-6">
+    <h2 class="text-lg font-semibold text-slate-800 mb-4">Reporte mensual</h2>
+
+    <div class="flex flex-wrap items-end gap-3 mb-4">
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Año</label>
+        <input type="number" [ngModel]="anio()" (ngModelChange)="anio.set($event)"
+               class="w-24 rounded border-slate-300" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Mes</label>
+        <input type="number" min="1" max="12" [ngModel]="mes()" (ngModelChange)="mes.set($event)"
+               class="w-20 rounded border-slate-300" />
+      </div>
+      <button (click)="consultarReporte()"
+              class="px-4 py-2 rounded bg-sky-600 text-white text-sm font-medium hover:bg-sky-700">
+        Consultar
+      </button>
+    </div>
+
+    @if (historialService.reporte(); as r) {
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div class="border rounded-lg p-3">
+          <p class="text-xs text-slate-500">Ingresos totales</p>
+          <p class="text-xl font-semibold text-slate-800">${{ r.totalIngresos }}</p>
+        </div>
+        <div class="border rounded-lg p-3">
+          <p class="text-xs text-slate-500">Efectivo</p>
+          <p class="text-xl font-semibold text-slate-800">${{ r.efectivo }}</p>
+        </div>
+        <div class="border rounded-lg p-3">
+          <p class="text-xs text-slate-500">Tarjeta</p>
+          <p class="text-xl font-semibold text-slate-800">${{ r.tarjeta }}</p>
+        </div>
+        <div class="border rounded-lg p-3">
+          <p class="text-xs text-slate-500">N° huéspedes</p>
+          <p class="text-xl font-semibold text-slate-800">{{ r.numeroHuespedes }}</p>
+        </div>
+      </div>
+    }
+  </div>
+
+  <div class="bg-white rounded-lg shadow p-6">
+    <h2 class="text-lg font-semibold text-slate-800 mb-4">Historial de ingresos</h2>
+
+    @if (historialService.historial().length === 0) {
+      <p class="text-slate-500 text-sm">Aún no hay historial.</p>
+    } @else {
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+          <thead class="text-slate-500 border-b">
+            <tr>
+              <th class="py-2 pr-3">Cliente</th>
+              <th class="py-2 pr-3">Habitación</th>
+              <th class="py-2 pr-3">Evento</th>
+              <th class="py-2 pr-3">Fecha</th>
+              <th class="py-2 pr-3">Periodo cubierto</th>
+              <th class="py-2 pr-3">Monto</th>
+              <th class="py-2 pr-3">Método</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (h of historialService.historial(); track h.id) {
+              <tr class="border-b last:border-0">
+                <td class="py-2 pr-3">{{ h.nombreCliente }}</td>
+                <td class="py-2 pr-3">P{{ h.piso }} - {{ h.habitacionNumero }}</td>
+                <td class="py-2 pr-3">
+                  <span class="px-2 py-1 rounded text-xs font-medium" [class]="claseTipo(h.tipo)">
+                    {{ etiquetaTipo(h.tipo) }}
+                  </span>
+                </td>
+                <td class="py-2 pr-3">{{ h.fechaEvento | date: 'short' }}</td>
+                <td class="py-2 pr-3">
+                  {{ h.periodoDesde | date: 'short' }} → {{ h.periodoHasta | date: 'short' }}
+                </td>
+                <td class="py-2 pr-3">
+                  ${{ h.totalCobrado }}
+                  @if (h.multa > 0) {
+                    <span class="block text-xs text-amber-600">incluye ${{ h.multa }} de multa</span>
+                  }
+                </td>
+                <td class="py-2 pr-3">{{ h.metodoPago }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+
+  <app-reporte-diario />
+
+  <app-reporte-anual />
+</div>

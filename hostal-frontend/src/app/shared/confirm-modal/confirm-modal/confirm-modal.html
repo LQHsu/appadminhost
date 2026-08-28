@@ -1,0 +1,30 @@
+@if (visible()) {
+  <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-lg shadow-xl max-w-sm w-full p-6">
+      <h3 class="text-lg font-semibold text-slate-800 mb-2">{{ titulo() }}</h3>
+
+      @if (mensaje()) {
+        <p class="text-sm text-slate-600 mb-4">{{ mensaje() }}</p>
+      }
+
+      <!-- Contenido libre: quien use el modal puede proyectar aquí un
+           resumen con su propio diseño (jerarquía, colores, etc.) en
+           vez de estar limitado a un solo texto plano. Si no se
+           proyecta nada, este bloque simplemente queda vacío. -->
+      <ng-content></ng-content>
+
+      <div class="flex justify-end gap-3 mt-6">
+        @if (textoCancelar()) {
+          <button type="button" (click)="cancelar.emit()"
+                  class="px-4 py-2 rounded border border-slate-300 text-sm text-slate-700 hover:bg-slate-50">
+            {{ textoCancelar() }}
+          </button>
+        }
+        <button type="button" (click)="confirmar.emit()"
+                class="px-4 py-2 rounded bg-sky-600 text-white text-sm font-medium hover:bg-sky-700">
+          {{ textoConfirmar() }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
