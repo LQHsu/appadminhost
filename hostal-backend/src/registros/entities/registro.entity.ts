@@ -1,10 +1,4 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  ManyToOne,
-  CreateDateColumn,
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
 import { Habitacion } from '../../habitaciones/entities/habitacion.entity';
 
 export enum MetodoPago {
@@ -30,9 +24,11 @@ export class Registro {
   @Column()
   nombreCliente: string;
 
-  // Se congela en el momento de creación (igual que el Excel con cálculo
-  // iterativo). Nunca se reescribe después de creado el registro.
-  @CreateDateColumn()
+  // Por defecto es "ahora" (el momento de crear el registro), pero se
+  // puede especificar una fecha/hora distinta (ej. un huésped que ya
+  // llegó y se está capturando tarde). Nunca se reescribe después de
+  // creado el registro.
+  @Column()
   checkIn: Date;
 
   @Column()
@@ -41,6 +37,9 @@ export class Registro {
   @Column('decimal')
   costoPorCama: number;
 
+  // Calculado por el backend a partir de checkIn/checkOutEstimado
+  // (días de calendario que abarca, redondeado hacia arriba) — ya no
+  // es un input directo del formulario.
   @Column()
   noches: number;
 
@@ -52,9 +51,11 @@ export class Registro {
   @Column('decimal')
   totalACobrar: number;
 
-  // Estimado al crear el registro: checkIn + noches. Si el huésped
-  // hace checkout real antes/después, se sobreescribe con la hora real
-  // al mover el registro a Historial.
+  // La FECHA la elige quien registra (checkOutFecha en el DTO); la
+  // HORA siempre se normaliza a las 12 pm — ese corte uniforme es lo
+  // que usan "deben hacer checkout" y la sugerencia de multa. Si el
+  // huésped hace checkout real antes/después, checkOutReal guarda la
+  // hora exacta real por separado.
   @Column()
   checkOutEstimado: Date;
 

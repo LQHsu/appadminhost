@@ -5,6 +5,32 @@ import { RegistrosService } from '../../core/services/registros.service';
 import { HabitacionesService } from '../../core/services/habitaciones.service';
 import { ConfirmModal } from '../../shared/confirm-modal/confirm-modal/confirm-modal';
 
+// Formatea un Date al formato que espera <input type="datetime-local">
+// (YYYY-MM-DDTHH:mm, en hora LOCAL — a diferencia de toISOString() que
+// da UTC y desfasaría la hora mostrada).
+function aInputDatetimeLocal(fecha: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${fecha.getFullYear()}-${pad(fecha.getMonth() + 1)}-${pad(fecha.getDate())}T${pad(fecha.getHours())}:${pad(fecha.getMinutes())}`;
+}
+
+// Formatea un Date al formato de <input type="date"> (YYYY-MM-DD, hora local).
+function aInputDate(fecha: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${fecha.getFullYear()}-${pad(fecha.getMonth() + 1)}-${pad(fecha.getDate())}`;
+}
+
+function ahoraInput(): string {
+  return aInputDatetimeLocal(new Date());
+}
+
+function mananaInput(): string {
+  const manana = new Date();
+  manana.setDate(manana.getDate() + 1);
+  return aInputDate(manana);
+}
+
+const MS_POR_DIA = 1000 * 60 * 60 * 24;
+
 @Component({
   selector: 'app-registro-form',
   imports: [ReactiveFormsModule, ConfirmModal, CurrencyPipe, DatePipe],
@@ -28,13 +54,18 @@ export class RegistroForm implements OnInit {
       habitacionId: [0, [Validators.required, Validators.min(1)]],
       camasSolicitadas: [1, [Validators.required, Validators.min(1)]],
       costoPorCama: [150, [Validators.required, Validators.min(0)]],
-      noches: [1, [Validators.required, Validators.min(1)]],
+      // Por defecto "ahora" (el caso normal); se puede cambiar para
+      // registrar tarde a alguien que ya llegó.
+      checkIn: [ahoraInput(), Validators.required],
+      // Por defecto mañana (1 noche); la hora la fija el backend a
+      // las 12pm sin importar lo que se vea aquí.
+      checkOutFecha: [mananaInput(), Validators.required],
       documentoIdentidad: ['', Validators.required],
       metodoPago: ['EFECTIVO' as 'EFECTIVO' | 'TARJETA', Validators.required],
       atendio: ['', Validators.required],
       otroCobro: [0, [Validators.min(0)]],
     },
-    { validators: this.camasDisponiblesValidator(this.habitacionesService) },
+    { validators: [this.camasDisponiblesValidator(this.habitacionesService), this.fechasValidator] },
   );
 
   ngOnInit() {
@@ -64,18 +95,26 @@ export class RegistroForm implements OnInit {
     this.enviando = true;
     this.mensajeError = '';
 
-    this.registrosService.crearRegistro(this.form.getRawValue()).subscribe({
-      next: () => {
-        this.enviando = false;
-        this.mostrarExito.set(true);
-        this.registrosService.cargarRegistros();
-        this.habitacionesService.cargarDisponibilidad();
-      },
-      error: (err) => {
-        this.enviando = false;
-        this.mensajeError = err.error?.message ?? 'Error al crear el registro';
-      },
-    });
+    const { checkIn, checkOutFecha, ...resto } = this.form.getRawValue();
+
+    this.registrosService
+      .crearRegistro({
+        ...resto,
+        checkIn: new Date(checkIn).toISOString(),
+        checkOutFecha,
+      })
+      .subscribe({
+        next: () => {
+          this.enviando = false;
+          this.mostrarExito.set(true);
+          this.registrosService.cargarRegistros();
+          this.habitacionesService.cargarDisponibilidad();
+        },
+        error: (err) => {
+          this.enviando = false;
+          this.mensajeError = err.error?.message ?? 'Error al crear el registro';
+        },
+      });
   }
 
   cerrarExito() {
@@ -85,7 +124,8 @@ export class RegistroForm implements OnInit {
       habitacionId: 0,
       camasSolicitadas: 1,
       costoPorCama: 150,
-      noches: 1,
+      checkIn: ahoraInput(),
+      checkOutFecha: mananaInput(),
       documentoIdentidad: '',
       metodoPago: 'EFECTIVO',
       atendio: '',
@@ -95,14 +135,23 @@ export class RegistroForm implements OnInit {
 
   // --- Datos para el resumen del modal de confirmación ---
 
-  // Preview del check-out estimado: cálculo aproximado del lado del
-  // cliente (hoy + noches). El valor real y definitivo lo congela el
-  // backend en el momento exacto en que se guarda el registro.
-  previewCheckOut(): Date {
-    const noches = this.form.value.noches ?? 0;
-    const fecha = new Date();
-    fecha.setDate(fecha.getDate() + noches);
-    return fecha;
+  // Igual que hace el backend: noches = días de calendario que abarca
+  // el periodo capturado, redondeado hacia arriba. Puramente para
+  // mostrarle al usuario cuánto se le va a cobrar antes de confirmar;
+  // el backend vuelve a calcularlo con la misma fórmula al guardar.
+  nochesCalculadas(): number {
+    const { checkIn, checkOutFecha } = this.form.value;
+    if (!checkIn || !checkOutFecha) return 0;
+    const inicio = new Date(checkIn);
+    const fin = new Date(`${checkOutFecha}T12:00:00`);
+    if (fin <= inicio) return 0;
+    return Math.max(1, Math.ceil((fin.getTime() - inicio.getTime()) / MS_POR_DIA));
+  }
+
+  checkOutPreview(): Date | null {
+    const fecha = this.form.value.checkOutFecha;
+    if (!fecha) return null;
+    return new Date(`${fecha}T12:00:00`);
   }
 
   habitacionSeleccionada() {
@@ -111,8 +160,8 @@ export class RegistroForm implements OnInit {
   }
 
   totalPreview(): number {
-    const { camasSolicitadas, costoPorCama, noches, otroCobro } = this.form.value;
-    return (camasSolicitadas ?? 0) * (costoPorCama ?? 0) * (noches ?? 0) + (otroCobro ?? 0);
+    const { camasSolicitadas, costoPorCama, otroCobro } = this.form.value;
+    return (camasSolicitadas ?? 0) * (costoPorCama ?? 0) * this.nochesCalculadas() + (otroCobro ?? 0);
   }
 
   camasDisponiblesValidator(habitacionesService: HabitacionesService) {
@@ -125,5 +174,17 @@ export class RegistroForm implements OnInit {
       }
       return null;
     };
+  }
+
+  // La fecha de salida (a las 12pm) debe ser posterior al check-in —
+  // misma regla que valida el backend, aquí solo para avisar antes de
+  // enviar.
+  fechasValidator(form: AbstractControl): ValidationErrors | null {
+    const checkIn = form.get('checkIn')?.value;
+    const checkOutFecha = form.get('checkOutFecha')?.value;
+    if (!checkIn || !checkOutFecha) return null;
+    const inicio = new Date(checkIn);
+    const fin = new Date(`${checkOutFecha}T12:00:00`);
+    return fin <= inicio ? { fechasInvalidas: true } : null;
   }
 }

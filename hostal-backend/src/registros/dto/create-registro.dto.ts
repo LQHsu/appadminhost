@@ -6,12 +6,15 @@ import {
   Min,
   IsEnum,
   IsOptional,
+  IsISO8601,
+  IsDateString,
 } from 'class-validator';
 import { MetodoPago, Renovar } from '../entities/registro.entity';
 
 // Estas son las "celdas amarillas" del Excel: lo único que el
-// cliente (frontend) puede mandar. Todo lo demás (checkIn, total,
-// status, checkOut) lo calcula el backend.
+// cliente (frontend) puede mandar. "Noches" ya NO se manda — el
+// backend la calcula sola a partir de checkIn/checkOutFecha, así el
+// cobro siempre coincide con el periodo real capturado.
 export class CreateRegistroDto {
   @IsString()
   nombreCliente: string;
@@ -24,9 +27,17 @@ export class CreateRegistroDto {
   @IsPositive()
   costoPorCama: number;
 
-  @IsInt()
-  @IsPositive()
-  noches: number;
+  // Fecha Y hora exacta de entrada. Opcional: si no se manda, el
+  // backend usa "ahora" (el caso normal, alguien llegando en este
+  // momento). Se manda cuando se registra tarde a alguien que ya llegó.
+  @IsOptional()
+  @IsISO8601()
+  checkIn?: string;
+
+  // Solo la FECHA de salida (YYYY-MM-DD) — la hora siempre se fija a
+  // las 12 pm en el backend, igual que las renovaciones.
+  @IsDateString()
+  checkOutFecha: string;
 
   @IsInt()
   habitacionId: number;

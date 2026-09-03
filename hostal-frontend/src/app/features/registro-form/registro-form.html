@@ -67,17 +67,27 @@
     </div>
 
     <div>
-      <label class="block text-sm font-medium text-slate-600 mb-1">Noches</label>
+      <label class="block text-sm font-medium text-slate-600 mb-1">Fecha y hora de entrada</label>
       <input
-        formControlName="noches"
-        type="number"
-        min="1"
+        formControlName="checkIn"
+        type="datetime-local"
         class="w-full rounded border-slate-300 focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
       />
-      @if (form.get('noches')?.invalid && form.get('noches')?.touched) {
-        <p class="text-xs text-red-600 mt-1">
-          El numero de noches es requerido y debe ser mayor o igual a 1
-        </p>
+      @if (form.get('checkIn')?.invalid && form.get('checkIn')?.touched) {
+        <p class="text-xs text-red-600 mt-1">La fecha de entrada es requerida</p>
+      }
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-slate-600 mb-1">Fecha de salida</label>
+      <input
+        formControlName="checkOutFecha"
+        type="date"
+        class="w-full rounded border-slate-300 focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+      />
+      <p class="text-xs text-slate-500 mt-1">Checkout siempre a las 12:00 pm · {{ nochesCalculadas() }} noche(s)</p>
+      @if (form.get('checkOutFecha')?.touched && form.errors?.['fechasInvalidas']) {
+        <p class="text-xs text-red-600 mt-1">La fecha de salida debe ser posterior a la entrada</p>
       }
     </div>
 
@@ -176,7 +186,7 @@
 
     <div class="bg-amber-50 border border-amber-100 rounded-lg p-3">
       <p class="text-xs text-amber-700">Check-out estimado</p>
-      <p class="text-lg font-semibold text-amber-900">{{ previewCheckOut() | date: 'EEEE d MMMM, HH:mm' }}</p>
+      <p class="text-lg font-semibold text-amber-900">{{ checkOutPreview() | date: 'EEEE d MMMM, HH:mm' }}</p>
     </div>
 
     <!-- Info secundaria: mismo bloque pero deliberadamente menos
@@ -189,7 +199,7 @@
       <dt>Costo por cama</dt>
       <dd class="text-slate-700 text-right">{{ form.value.costoPorCama | currency: 'MXN' }}</dd>
       <dt>Noches</dt>
-      <dd class="text-slate-700 text-right">{{ form.value.noches }}</dd>
+      <dd class="text-slate-700 text-right">{{ nochesCalculadas() }}</dd>
       @if (form.value.otroCobro) {
         <dt>Otro cobro</dt>
         <dd class="text-slate-700 text-right">{{ form.value.otroCobro | currency: 'MXN' }}</dd>

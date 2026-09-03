@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Registro, Renovar } from './entities/registro.entity';
@@ -54,20 +54,30 @@ export class RegistrosService {
       dto.camasSolicitadas,
     );
 
-    const checkIn = new Date(); // se congela aquí, como en el Excel
-    const checkOutEstimado = new Date(checkIn);
-    checkOutEstimado.setDate(checkOutEstimado.getDate() + dto.noches);
-    // El checkout estimado siempre cae a las 12 pm del día que
-    // corresponda, sin importar a qué hora se hizo el check-in. Así
-    // "pasadas las 12" es un corte único y predecible para todos: es
-    // cuando el status pasa a PENDIENTE, las camas se liberan solas si
-    // ya se marcó "no renovar", y desde cuándo aplicaría una multa por
-    // checkout tardío.
+    // Por defecto "ahora" (el caso normal), pero se puede especificar
+    // otra fecha/hora — ej. un huésped que ya llegó y se captura tarde.
+    const checkIn = dto.checkIn ? new Date(dto.checkIn) : new Date();
+
+    // Solo la FECHA de salida la elige quien registra; la hora siempre
+    // se fija a las 12 pm. Así "pasadas las 12" sigue siendo un corte
+    // único y predecible para todos: es cuando el status pasa a
+    // PENDIENTE, las camas se liberan solas si ya se marcó "no
+    // renovar", y desde cuándo aplicaría una multa por checkout tardío.
+    const checkOutEstimado = new Date(`${dto.checkOutFecha}T00:00:00`);
     checkOutEstimado.setHours(12, 0, 0, 0);
 
+    if (checkOutEstimado <= checkIn) {
+      throw new BadRequestException('La fecha de salida debe ser posterior al check-in');
+    }
+
+    // "Noches" ya no es un input: se calcula del periodo real
+    // capturado (días de calendario que abarca, redondeado hacia
+    // arriba), así el cobro siempre coincide con las fechas.
+    const MS_POR_DIA = 1000 * 60 * 60 * 24;
+    const noches = Math.max(1, Math.ceil((checkOutEstimado.getTime() - checkIn.getTime()) / MS_POR_DIA));
+
     const otroCobro = dto.otroCobro ?? 0;
-    const totalACobrar =
-      dto.camasSolicitadas * dto.costoPorCama * dto.noches + otroCobro;
+    const totalACobrar = dto.camasSolicitadas * dto.costoPorCama * noches + otroCobro;
 
     // El check-in y su línea de historial se guardan juntos: o se crea
     // el registro Y se refleja el cobro en el reporte diario, o no pasa
@@ -75,9 +85,10 @@ export class RegistrosService {
     return this.dataSource.transaction(async (manager) => {
       const registro = manager.create(Registro, {
         nombreCliente: dto.nombreCliente,
+        checkIn,
         camasSolicitadas: dto.camasSolicitadas,
         costoPorCama: dto.costoPorCama,
-        noches: dto.noches,
+        noches,
         otroCobro,
         totalACobrar,
         checkOutEstimado,
@@ -90,8 +101,11 @@ export class RegistrosService {
 
       const guardado = await manager.save(registro);
 
-      // Línea de historial CHECK_IN: refleja el cobro inicial el día
-      // que realmente se hizo, no hasta que el huésped se vaya.
+      // Línea de historial CHECK_IN: fechaEvento = checkIn real (no el
+      // momento en que se capturó el registro) — si se registra tarde
+      // a alguien que ya llegó hace días, el reporte de ESE día se
+      // actualiza retroactivamente para reflejarlo, en vez de contarlo
+      // en el día de hoy.
       const historial = manager.create('Historial', {
         registroOriginalId: guardado.id,
         tipo: TipoEvento.CHECK_IN,

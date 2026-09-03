@@ -35,12 +35,18 @@ export interface Registro {
 }
 
 // Solo las "celdas amarillas": lo único que el frontend puede enviar
-// al crear un registro. El resto lo calcula el backend.
+// al crear un registro. "Noches" ya no se manda — el backend la
+// calcula sola a partir de checkIn/checkOutFecha.
 export interface CreateRegistroDto {
   nombreCliente: string;
   camasSolicitadas: number;
   costoPorCama: number;
-  noches: number;
+  // Fecha y hora exacta de entrada (ISO). Opcional: si se omite, el
+  // backend usa "ahora".
+  checkIn?: string;
+  // Solo la FECHA de salida (YYYY-MM-DD) — la hora se fija a las 12pm
+  // en el backend.
+  checkOutFecha: string;
   habitacionId: number;
   documentoIdentidad: string;
   metodoPago: MetodoPago;
