@@ -64,6 +64,7 @@
               <th class="py-2 pr-3">Periodo</th>
               <th class="py-2 pr-3 text-right">Monto</th>
               <th class="py-2 pr-3">Cuarto</th>
+              <th class="py-2 pr-3 text-right">Camas</th>
             </tr>
           </thead>
           <tbody>
@@ -81,6 +82,7 @@
                 </td>
                 <td class="py-2 pr-3 text-right">{{ f.totalCobrado | currency: 'MXN' }}</td>
                 <td class="py-2 pr-3">P{{ f.piso }} - {{ f.habitacionNumero }}</td>
+                <td class="py-2 pr-3 text-right">{{ f.camas }}</td>
               </tr>
             }
           </tbody>
@@ -88,6 +90,7 @@
             <tr class="border-t-2 border-slate-300 font-semibold text-slate-800">
               <td class="py-2 pr-3" colspan="3">Total del periodo</td>
               <td class="py-2 pr-3 text-right">{{ r.resumen.totalIngresos | currency: 'MXN' }}</td>
+              <td></td>
               <td></td>
             </tr>
           </tfoot>

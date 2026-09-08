@@ -1,5 +1,6 @@
 import { Controller, Get, Query, ParseIntPipe, BadRequestException } from '@nestjs/common';
 import { HistorialService } from './historial.service';
+import { medianocheHostal, UN_DIA_MS } from '../common/zona-horaria';
 
 @Controller('historial')
 export class HistorialController {
@@ -30,13 +31,17 @@ export class HistorialController {
   // "hasta" se toma como día completo, incluyendo todo lo cobrado ese día).
   @Get('reporte-diario')
   reporteDiario(@Query('desde') desde: string, @Query('hasta') hasta: string) {
-    const inicio = new Date(`${desde}T00:00:00`);
-    const finExclusivo = new Date(`${hasta}T00:00:00`);
+    // medianocheHostal (no `new Date(...)` a secas) es lo que hace que
+    // el rango cubra el día completo EN HORA DEL HOSTAL — antes se
+    // interpretaba en la hora del servidor (UTC en Render), desfasando
+    // la ventana 6 horas y "perdiendo" o "corriendo" movimientos cerca
+    // de la medianoche hacia el día siguiente.
+    const inicio = medianocheHostal(desde);
+    const finExclusivo = medianocheHostal(hasta);
     if (isNaN(inicio.getTime()) || isNaN(finExclusivo.getTime())) {
       throw new BadRequestException('desde/hasta deben ser fechas válidas (YYYY-MM-DD)');
     }
-    finExclusivo.setDate(finExclusivo.getDate() + 1); // fin de día inclusive
 
-    return this.historialService.reporteDiario(inicio, finExclusivo);
+    return this.historialService.reporteDiario(inicio, new Date(finExclusivo.getTime() + UN_DIA_MS));
   }
 }

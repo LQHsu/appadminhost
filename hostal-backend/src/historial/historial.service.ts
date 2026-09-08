@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, Repository } from 'typeorm';
 import { Historial, TipoEvento } from './entities/historial.entity';
+import { medianocheHostal, fechaYMDHostal } from '../common/zona-horaria';
 
 @Injectable()
 export class HistorialService {
@@ -51,9 +52,13 @@ export class HistorialService {
   // check-in, renovación o checkout), no por la fecha de salida final,
   // así el mes en que entró/renovó un huésped ya refleja ese ingreso.
   async reporteMensual(anio: number, mes: number) {
-    // mes: 1-12
-    const inicio = new Date(anio, mes - 1, 1);
-    const fin = new Date(anio, mes, 1); // primer día del mes siguiente
+    // mes: 1-12. medianocheHostal (no `new Date(anio, mes, dia)`, que
+    // usa la hora LOCAL DEL SERVIDOR) evita que el primer/último día
+    // del mes queden desfasados por la diferencia de zona horaria.
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const inicio = medianocheHostal(`${anio}-${pad(mes)}-01`);
+    const siguienteMes = mes === 12 ? { anio: anio + 1, mes: 1 } : { anio, mes: mes + 1 };
+    const fin = medianocheHostal(`${siguienteMes.anio}-${pad(siguienteMes.mes)}-01`); // primer día del mes siguiente
 
     const registros = await this.historialRepo.find({
       where: { fechaEvento: Between(inicio, fin) },
@@ -66,8 +71,8 @@ export class HistorialService {
   // tengan movimientos, para que la tabla/gráfica siempre tenga las
   // 12 barras) + el acumulado del año completo.
   async reporteAnual(anio: number) {
-    const inicio = new Date(anio, 0, 1);
-    const fin = new Date(anio + 1, 0, 1);
+    const inicio = medianocheHostal(`${anio}-01-01`);
+    const fin = medianocheHostal(`${anio + 1}-01-01`);
 
     const registros = await this.historialRepo.find({
       where: { fechaEvento: Between(inicio, fin) },
@@ -75,7 +80,13 @@ export class HistorialService {
 
     const meses = Array.from({ length: 12 }, (_, i) => {
       const mes = i + 1;
-      const delMes = registros.filter((r) => new Date(r.fechaEvento).getMonth() === i);
+      // fechaYMDHostal (no .getMonth() a secas, que lee la hora LOCAL
+      // DEL SERVIDOR) — evita que un movimiento de fin de mes cerca de
+      // la medianoche se cuente en el mes equivocado.
+      const delMes = registros.filter((r) => {
+        const mesDelRegistro = Number(fechaYMDHostal(new Date(r.fechaEvento)).split('-')[1]);
+        return mesDelRegistro === mes;
+      });
       return { mes, ...this.resumenDeFilas(delMes) };
     });
 

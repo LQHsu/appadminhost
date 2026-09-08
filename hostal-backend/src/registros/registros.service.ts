@@ -7,6 +7,7 @@ import { CreateRegistroDto } from './dto/create-registro.dto';
 import { HabitacionesService } from '../habitaciones/habitaciones.service';
 import { HistorialService } from '../historial/historial.service';
 import { TipoEvento } from '../historial/entities/historial.entity';
+import { medioDiaHostal, fechaYMDHostal } from '../common/zona-horaria';
 
 export type Status = 'VIGENTE' | 'PENDIENTE' | 'RENOVADO' | 'NO';
 
@@ -59,12 +60,12 @@ export class RegistrosService {
     const checkIn = dto.checkIn ? new Date(dto.checkIn) : new Date();
 
     // Solo la FECHA de salida la elige quien registra; la hora siempre
-    // se fija a las 12 pm. Así "pasadas las 12" sigue siendo un corte
+    // se fija a las 12 pm HORA DEL HOSTAL (no la del servidor — ver
+    // zona-horaria.ts). Así "pasadas las 12" sigue siendo un corte
     // único y predecible para todos: es cuando el status pasa a
     // PENDIENTE, las camas se liberan solas si ya se marcó "no
     // renovar", y desde cuándo aplicaría una multa por checkout tardío.
-    const checkOutEstimado = new Date(`${dto.checkOutFecha}T00:00:00`);
-    checkOutEstimado.setHours(12, 0, 0, 0);
+    const checkOutEstimado = medioDiaHostal(dto.checkOutFecha);
 
     if (checkOutEstimado <= checkIn) {
       throw new BadRequestException('La fecha de salida debe ser posterior al check-in');
@@ -168,9 +169,15 @@ export class RegistrosService {
       if (renovar === Renovar.SI) {
         const dias = diasRenovacion && diasRenovacion > 0 ? diasRenovacion : registro.noches;
         const checkoutAnterior = registro.checkOutEstimado;
-        const nuevoCheckout = new Date(checkoutAnterior);
-        nuevoCheckout.setDate(nuevoCheckout.getDate() + dias);
-        nuevoCheckout.setHours(12, 0, 0, 0); // igual que en create(): siempre a las 12 pm
+        // fechaYMDHostal usa la fecha del hostal (no la del servidor)
+        // para saber qué día es "hoy + dias" antes de recalcular el
+        // mediodía correcto — mismo fix que en create().
+        const [anio, mes, dia] = fechaYMDHostal(checkoutAnterior).split('-').map(Number);
+        const fechaBase = new Date(Date.UTC(anio, mes - 1, dia));
+        fechaBase.setUTCDate(fechaBase.getUTCDate() + dias);
+        const nuevoCheckout = medioDiaHostal(
+          `${fechaBase.getUTCFullYear()}-${String(fechaBase.getUTCMonth() + 1).padStart(2, '0')}-${String(fechaBase.getUTCDate()).padStart(2, '0')}`,
+        );
         const montoRenovacion = registro.camasSolicitadas * Number(registro.costoPorCama) * dias;
 
         registro.checkOutEstimado = nuevoCheckout;

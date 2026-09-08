@@ -23,15 +23,21 @@
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div class="border rounded-lg p-3">
           <p class="text-xs text-slate-500">Ingresos totales</p>
-          <p class="text-xl font-semibold text-slate-800">${{ r.totalIngresos }}</p>
+          <p class="text-xl font-semibold text-slate-800">
+            ${{ redondearArriba3CifrasSig(r.totalIngresos) | number }}
+          </p>
         </div>
         <div class="border rounded-lg p-3">
           <p class="text-xs text-slate-500">Efectivo</p>
-          <p class="text-xl font-semibold text-slate-800">${{ r.efectivo }}</p>
+          <p class="text-xl font-semibold text-slate-800">
+            ${{ redondearArriba3CifrasSig(r.efectivo) | number }}
+          </p>
         </div>
         <div class="border rounded-lg p-3">
           <p class="text-xs text-slate-500">Tarjeta</p>
-          <p class="text-xl font-semibold text-slate-800">${{ r.tarjeta }}</p>
+          <p class="text-xl font-semibold text-slate-800">
+            ${{ redondearArriba3CifrasSig(r.tarjeta) | number }}
+          </p>
         </div>
         <div class="border rounded-lg p-3">
           <p class="text-xs text-slate-500">N° huéspedes</p>
@@ -53,6 +59,7 @@
             <tr>
               <th class="py-2 pr-3">Cliente</th>
               <th class="py-2 pr-3">Habitación</th>
+              <th class="py-2 pr-3">Camas</th>
               <th class="py-2 pr-3">Evento</th>
               <th class="py-2 pr-3">Fecha</th>
               <th class="py-2 pr-3">Periodo cubierto</th>
@@ -65,6 +72,7 @@
               <tr class="border-b last:border-0">
                 <td class="py-2 pr-3">{{ h.nombreCliente }}</td>
                 <td class="py-2 pr-3">P{{ h.piso }} - {{ h.habitacionNumero }}</td>
+                <td class="py-2 pr-3">{{ h.camas }}</td>
                 <td class="py-2 pr-3">
                   <span class="px-2 py-1 rounded text-xs font-medium" [class]="claseTipo(h.tipo)">
                     {{ etiquetaTipo(h.tipo) }}
