@@ -106,6 +106,9 @@
     >
       @if (accionPendiente(); as p) {
         <div class="space-y-3 text-sm">
+          @if (errorAccion()) {
+            <p class="text-red-600 text-xs bg-red-50 border border-red-100 rounded p-2">{{ errorAccion() }}</p>
+          }
           <p class="text-slate-700">
             Huésped: <span class="font-semibold">{{ p.registro.nombreCliente }}</span>
           </p>
@@ -170,5 +173,7 @@
         </div>
       }
     </app-confirm-modal>
+
+    <app-loading-overlay [visible]="enviando()" mensaje="Procesando..." />
   </div>
 </div>

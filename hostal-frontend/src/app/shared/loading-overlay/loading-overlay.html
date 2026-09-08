@@ -1,0 +1,14 @@
+@if (visible()) {
+  <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4">
+    <div class="bg-white rounded-lg shadow-xl max-w-xs w-full p-6 flex flex-col items-center text-center gap-3">
+      <div
+        class="h-10 w-10 rounded-full border-4 border-sky-200 border-t-sky-600 animate-spin"
+        aria-hidden="true"
+      ></div>
+      <p class="text-sm font-medium text-slate-700">{{ mensaje() }}</p>
+      <p class="text-xs text-slate-500">
+        A veces el sistema tarda un poco en responder si nadie lo ha usado en un rato — espera, ya va.
+      </p>
+    </div>
+  </div>
+}

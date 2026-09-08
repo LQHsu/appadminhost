@@ -4,6 +4,7 @@ import { CurrencyPipe, DatePipe } from '@angular/common';
 import { RegistrosService } from '../../core/services/registros.service';
 import { HabitacionesService } from '../../core/services/habitaciones.service';
 import { ConfirmModal } from '../../shared/confirm-modal/confirm-modal/confirm-modal';
+import { LoadingOverlay } from '../../shared/loading-overlay/loading-overlay';
 
 // Formatea un Date al formato que espera <input type="datetime-local">
 // (YYYY-MM-DDTHH:mm, en hora LOCAL — a diferencia de toISOString() que
@@ -33,7 +34,7 @@ const MS_POR_DIA = 1000 * 60 * 60 * 24;
 
 @Component({
   selector: 'app-registro-form',
-  imports: [ReactiveFormsModule, ConfirmModal, CurrencyPipe, DatePipe],
+  imports: [ReactiveFormsModule, ConfirmModal, LoadingOverlay, CurrencyPipe, DatePipe],
   templateUrl: './registro-form.html',
 })
 export class RegistroForm implements OnInit {

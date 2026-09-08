@@ -5,12 +5,13 @@ import { RegistrosService } from '../../core/services/registros.service';
 import { HabitacionesService } from '../../core/services/habitaciones.service';
 import { Status, Registro } from '../../core/models/registro.model';
 import { ConfirmModal } from '../../shared/confirm-modal/confirm-modal/confirm-modal';
+import { LoadingOverlay } from '../../shared/loading-overlay/loading-overlay';
 
 type TipoAccion = 'checkout' | 'no-renovar' | 'renovar';
 
 @Component({
   selector: 'app-registros-list',
-  imports: [DatePipe, ConfirmModal, FormsModule],
+  imports: [DatePipe, ConfirmModal, LoadingOverlay, FormsModule],
   templateUrl: './registros-list.html',
 })
 export class RegistrosList implements OnInit {
@@ -20,6 +21,11 @@ export class RegistrosList implements OnInit {
   // null = no hay ningún modal abierto. Si tiene valor, sabemos
   // exactamente qué registro y qué acción está pendiente de confirmar.
   accionPendiente = signal<{ tipo: TipoAccion; registro: Registro } | null>(null);
+
+  // Mientras el checkout/renovar está en camino al backend — bloquea
+  // con el overlay para que no se pueda reenviar la misma acción dos
+  // veces si el servidor tarda en responder (ver LoadingOverlay).
+  enviando = signal(false);
 
   // Solo se usa cuando tipo === 'renovar': cuántos días quiere
   // renovar el huésped. Se precarga con las noches originales como
@@ -59,6 +65,8 @@ export class RegistrosList implements OnInit {
     this.accionPendiente.set(null);
   }
 
+  errorAccion = signal('');
+
   confirmarAccion() {
     const pendiente = this.accionPendiente();
     if (!pendiente) return;
@@ -84,9 +92,18 @@ export class RegistrosList implements OnInit {
         break;
     }
 
-    accion$.subscribe(() => {
-      this.accionPendiente.set(null);
-      this.refrescar();
+    this.errorAccion.set('');
+    this.enviando.set(true);
+    accion$.subscribe({
+      next: () => {
+        this.enviando.set(false);
+        this.accionPendiente.set(null);
+        this.refrescar();
+      },
+      error: (err) => {
+        this.enviando.set(false);
+        this.errorAccion.set(err.error?.message ?? 'No se pudo completar la acción, intenta de nuevo');
+      },
     });
   }
 
