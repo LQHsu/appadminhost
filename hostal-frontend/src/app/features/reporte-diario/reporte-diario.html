@@ -69,7 +69,10 @@
           </thead>
           <tbody>
             @for (f of r.filas; track f.id) {
-              <tr class="border-b last:border-0">
+              <tr
+                class="border-b last:border-0"
+                [class.oculto-en-impresion]="f.tipo === 'CHECKOUT' && !montoCobradoEn(f)"
+              >
                 <td class="py-2 pr-3">{{ f.nombreCliente }}</td>
                 <td class="py-2 pr-3">
                   <span class="px-2 py-1 rounded text-xs font-medium no-imprimir" [class]="claseTipo(f.tipo)">

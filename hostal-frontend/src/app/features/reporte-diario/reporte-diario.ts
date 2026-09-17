@@ -2,7 +2,7 @@ import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HistorialService } from '../../core/services/historial.service';
-import { TipoEvento } from '../../core/models/historial.model';
+import { Historial, TipoEvento } from '../../core/models/historial.model';
 
 function hoyIso(): string {
   const hoy = new Date();
@@ -67,6 +67,14 @@ export class ReporteDiario implements OnInit {
       case 'CHECKOUT':
         return 'Checkout';
     }
+  }
+
+  // Number(...) porque el backend manda los decimales como string. Un
+  // checkout sin ningún cargo (el caso normal) queda en $0 — esas
+  // líneas se ocultan solo en la versión impresa/PDF (ver
+  // .oculto-en-impresion), no en la vista de pantalla.
+  montoCobradoEn(f: Historial): number {
+    return Number(f.totalCobrado) || 0;
   }
 
   claseTipo(tipo: TipoEvento): string {

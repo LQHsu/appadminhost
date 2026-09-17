@@ -7,8 +7,10 @@
    de instalar una librería de PDF. `.reporte-diario-print` marca esa
    sección: al imprimir, se oculta todo lo demás (nav, otras tarjetas
    de la pestaña) y solo queda visible ella. Dentro de esa sección,
-   `.no-imprimir` oculta controles interactivos (inputs, botones) y
-   `.solo-imprimir` muestra en su lugar el mismo dato en texto plano. */
+   `.no-imprimir` oculta controles interactivos (inputs, botones),
+   `.solo-imprimir` muestra en su lugar el mismo dato en texto plano, y
+   `.oculto-en-impresion` quita renglones que no aportan nada al PDF
+   (ej. un checkout en $0) sin tocar lo que se ve en pantalla. */
 @media print {
   body * {
     visibility: hidden;
@@ -24,7 +26,8 @@
     width: 100%;
     box-shadow: none !important;
   }
-  .no-imprimir {
+  .no-imprimir,
+  .oculto-en-impresion {
     display: none !important;
   }
   .solo-imprimir {
