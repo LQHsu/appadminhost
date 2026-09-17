@@ -36,6 +36,11 @@
   .solo-imprimir {
     display: block !important;
   }
+  .fecha-grande-en-impresion {
+    font-size: 1.5rem !important;
+    font-weight: 600 !important;
+    color: #1e293b !important; /* slate-800, en vez del gris tenue de pantalla */
+  }
 }
 
 .solo-imprimir {
