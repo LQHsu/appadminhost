@@ -10,7 +10,7 @@ import {
 import { RegistrosService } from './registros.service';
 import { CreateRegistroDto } from './dto/create-registro.dto';
 import { CheckoutDto } from './dto/checkout.dto';
-import { Renovar } from './entities/registro.entity';
+import { ActualizarRenovarDto } from './dto/actualizar-renovar.dto';
 
 @Controller('registros')
 export class RegistrosController {
@@ -33,15 +33,17 @@ export class RegistrosController {
     return this.registrosService.findOne(id);
   }
 
-  // Marcar la columna "Renovar" (SI/NO). diasRenovacion es opcional:
-  // solo aplica cuando renovar === 'SI'.
+  // Marcar la columna "Renovar" (SI/NO). diasRenovacion/pagos solo
+  // aplican cuando renovar === 'SI'.
   @Patch(':id/renovar')
-  actualizarRenovar(
-    @Param('id', ParseIntPipe) id: number,
-    @Body('renovar') renovar: Renovar,
-    @Body('diasRenovacion') diasRenovacion?: number,
-  ) {
-    return this.registrosService.actualizarRenovar(id, renovar, diasRenovacion);
+  actualizarRenovar(@Param('id', ParseIntPipe) id: number, @Body() dto: ActualizarRenovarDto) {
+    return this.registrosService.actualizarRenovar(
+      id,
+      dto.renovar,
+      dto.diasRenovacion,
+      dto.pagos,
+      dto.metodoPago,
+    );
   }
 
   // Equivalente al botón "CONFIRMAR REGISTRO" (macro VBA): mueve el
@@ -49,6 +51,12 @@ export class RegistrosController {
   // decididos a mano al momento de la salida (extra/multa tardía).
   @Post(':id/checkout')
   checkout(@Param('id', ParseIntPipe) id: number, @Body() dto: CheckoutDto) {
-    return this.registrosService.checkout(id, dto.otroCobroCheckout, dto.multaTardio);
+    return this.registrosService.checkout(
+      id,
+      dto.otroCobroCheckout,
+      dto.otroCobroCheckoutMetodoPago,
+      dto.multaTardio,
+      dto.multaTardioMetodoPago,
+    );
   }
 }

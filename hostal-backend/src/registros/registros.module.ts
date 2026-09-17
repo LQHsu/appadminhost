@@ -4,12 +4,13 @@ import { RegistrosService } from './registros.service';
 import { RegistrosController } from './registros.controller';
 import { Registro } from './entities/registro.entity';
 import { Habitacion } from '../habitaciones/entities/habitacion.entity';
+import { Ingreso } from '../historial/entities/ingreso.entity';
 import { HistorialModule } from '../historial/historial.module';
 import { HabitacionesModule } from '../habitaciones/habitaciones.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Registro, Habitacion]),
+    TypeOrmModule.forFeature([Registro, Habitacion, Ingreso]),
     HistorialModule,
     HabitacionesModule,
   ],

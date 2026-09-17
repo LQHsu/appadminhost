@@ -8,8 +8,13 @@ import {
   IsOptional,
   IsISO8601,
   IsDateString,
+  IsArray,
+  ArrayMinSize,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { MetodoPago, Renovar } from '../entities/registro.entity';
+import { PagoDto } from './pago.dto';
 
 // Estas son las "celdas amarillas" del Excel: lo único que el
 // cliente (frontend) puede mandar. "Noches" ya NO se manda — el
@@ -45,8 +50,22 @@ export class CreateRegistroDto {
   @IsString()
   documentoIdentidad: string;
 
+  // DEPRECADO: usar `pagos`. Se mantiene opcional por compatibilidad
+  // con el frontend viejo mientras se termina de migrar — si se manda
+  // `metodoPago` sin `pagos`, el backend arma una sola línea de pago
+  // con el total completo.
+  @IsOptional()
   @IsEnum(MetodoPago)
-  metodoPago: MetodoPago;
+  metodoPago?: MetodoPago;
+
+  // Cómo se pagó el total a cobrar — una o varias líneas (ej. mitad
+  // efectivo, mitad tarjeta). La suma debe coincidir con el total.
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => PagoDto)
+  pagos?: PagoDto[];
 
   @IsOptional()
   @IsEnum(Renovar)

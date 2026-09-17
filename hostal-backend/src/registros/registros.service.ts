@@ -1,12 +1,14 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
-import { Registro, Renovar } from './entities/registro.entity';
+import { DataSource, EntityManager, Repository } from 'typeorm';
+import { Registro, Renovar, MetodoPago } from './entities/registro.entity';
 import { Habitacion } from '../habitaciones/entities/habitacion.entity';
 import { CreateRegistroDto } from './dto/create-registro.dto';
+import { PagoDto } from './dto/pago.dto';
 import { HabitacionesService } from '../habitaciones/habitaciones.service';
 import { HistorialService } from '../historial/historial.service';
-import { TipoEvento } from '../historial/entities/historial.entity';
+import { Historial, TipoEvento } from '../historial/entities/historial.entity';
+import { Ingreso, ConceptoIngreso } from '../historial/entities/ingreso.entity';
 import { medioDiaHostal, fechaYMDHostal } from '../common/zona-horaria';
 
 export type Status = 'VIGENTE' | 'PENDIENTE' | 'RENOVADO' | 'NO';
@@ -22,6 +24,51 @@ export class RegistrosService {
     private historialService: HistorialService,
     private dataSource: DataSource,
   ) {}
+
+  // Reconcilia el DTO nuevo (`pagos`, varias líneas) con el viejo
+  // (`metodoPago`, uno solo) mientras el frontend termina de migrar:
+  // si mandan `pagos`, se usa tal cual (validando que sume el total);
+  // si solo mandan el `metodoPago` de siempre, se arma una única línea
+  // con el total completo. Si no mandan ninguno de los dos, es un
+  // request inválido.
+  private resolverPagos(pagos: PagoDto[] | undefined, metodoPago: MetodoPago | undefined, total: number): PagoDto[] {
+    if (pagos && pagos.length > 0) {
+      const suma = pagos.reduce((s, p) => s + p.cantidad, 0);
+      if (Math.abs(suma - total) > 0.01) {
+        throw new BadRequestException(
+          `La suma de los pagos ($${suma.toFixed(2)}) no coincide con el total a cobrar ($${total.toFixed(2)})`,
+        );
+      }
+      return pagos;
+    }
+    if (metodoPago) {
+      return [{ metodoPago, cantidad: total }];
+    }
+    throw new BadRequestException('Debes indicar cómo se pagó (pagos o metodoPago)');
+  }
+
+  // Crea una fila de Ingreso por cada línea de pago, todas ligadas al
+  // mismo evento de Historial y al mismo huésped.
+  private async crearIngresos(
+    manager: EntityManager,
+    pagos: PagoDto[],
+    concepto: ConceptoIngreso,
+    historialId: number,
+    registroId: number,
+    fecha: Date,
+  ) {
+    for (const pago of pagos) {
+      const ingreso = manager.create(Ingreso, {
+        historial: { id: historialId } as Ingreso['historial'],
+        registro: { id: registroId } as Ingreso['registro'],
+        concepto,
+        metodoPago: pago.metodoPago,
+        cantidad: pago.cantidad,
+        fecha,
+      });
+      await manager.save(ingreso);
+    }
+  }
 
   // Traduce literalmente la fórmula de STATUS del Excel:
   // VIGENTE mientras no llega checkout, PENDIENTE si ya pasó y no hay
@@ -79,6 +126,7 @@ export class RegistrosService {
 
     const otroCobro = dto.otroCobro ?? 0;
     const totalACobrar = dto.camasSolicitadas * dto.costoPorCama * noches + otroCobro;
+    const pagos = this.resolverPagos(dto.pagos, dto.metodoPago, totalACobrar);
 
     // El check-in y su línea de historial se guardan juntos: o se crea
     // el registro Y se refleja el cobro en el reporte diario, o no pasa
@@ -95,7 +143,10 @@ export class RegistrosService {
         checkOutEstimado,
         habitacion,
         documentoIdentidad: dto.documentoIdentidad,
-        metodoPago: dto.metodoPago,
+        // "Método de pago" del registro queda como el de la PRIMERA
+        // línea, solo para mostrar algo rápido en la lista — el
+        // desglose real (si hubo varios métodos) vive en Ingreso.
+        metodoPago: pagos[0].metodoPago,
         renovar: dto.renovar ?? Renovar.PENDIENTE,
         atendio: dto.atendio,
       });
@@ -107,7 +158,7 @@ export class RegistrosService {
       // a alguien que ya llegó hace días, el reporte de ESE día se
       // actualiza retroactivamente para reflejarlo, en vez de contarlo
       // en el día de hoy.
-      const historial = manager.create('Historial', {
+      const historial = manager.create(Historial, {
         registroOriginalId: guardado.id,
         tipo: TipoEvento.CHECK_IN,
         fechaEvento: checkIn,
@@ -115,7 +166,7 @@ export class RegistrosService {
         periodoHasta: checkOutEstimado,
         nombreCliente: guardado.nombreCliente,
         checkIn,
-        checkOut: null,
+        checkOut: null as unknown as Date,
         camas: guardado.camasSolicitadas,
         costoPorCama: guardado.costoPorCama,
         noches: guardado.noches,
@@ -129,7 +180,16 @@ export class RegistrosService {
         renovarFinal: guardado.renovar,
         atendio: guardado.atendio,
       });
-      await manager.save(historial);
+      const historialGuardado = await manager.save(historial);
+
+      await this.crearIngresos(
+        manager,
+        pagos,
+        ConceptoIngreso.HOSPEDAJE,
+        historialGuardado.id,
+        guardado.id,
+        checkIn,
+      );
 
       return this.conStatus(guardado);
     });
@@ -156,8 +216,15 @@ export class RegistrosService {
   // Actualiza SOLO las "celdas amarillas" editables (ej. marcar renovar).
   // diasRenovacion: cuántos días quiere renovar el huésped. Si no se
   // manda (o es <= 0), cae de regreso a las noches originales del
-  // registro (comportamiento anterior).
-  async actualizarRenovar(id: number, renovar: Renovar, diasRenovacion?: number) {
+  // registro (comportamiento anterior). pagos/metodoPago: cómo se pagó
+  // la renovación — solo aplica cuando renovar === 'SI'.
+  async actualizarRenovar(
+    id: number,
+    renovar: Renovar,
+    diasRenovacion?: number,
+    pagos?: PagoDto[],
+    metodoPago?: MetodoPago,
+  ) {
     return this.dataSource.transaction(async (manager) => {
       const registro = await manager.findOne(Registro, {
         where: { id },
@@ -179,6 +246,7 @@ export class RegistrosService {
           `${fechaBase.getUTCFullYear()}-${String(fechaBase.getUTCMonth() + 1).padStart(2, '0')}-${String(fechaBase.getUTCDate()).padStart(2, '0')}`,
         );
         const montoRenovacion = registro.camasSolicitadas * Number(registro.costoPorCama) * dias;
+        const lineasPago = this.resolverPagos(pagos, metodoPago, montoRenovacion);
 
         registro.checkOutEstimado = nuevoCheckout;
         registro.totalACobrar = Number(registro.totalACobrar) + montoRenovacion;
@@ -189,7 +257,7 @@ export class RegistrosService {
         // check-in original), y con el periodo que cubre (de cuándo
         // vencía antes a cuándo vence ahora).
         const ahora = new Date();
-        const historial = manager.create('Historial', {
+        const historial = manager.create(Historial, {
           registroOriginalId: registro.id,
           tipo: TipoEvento.RENOVACION,
           fechaEvento: ahora,
@@ -197,7 +265,7 @@ export class RegistrosService {
           periodoHasta: nuevoCheckout,
           nombreCliente: registro.nombreCliente,
           checkIn: registro.checkIn,
-          checkOut: null,
+          checkOut: null as unknown as Date,
           camas: registro.camasSolicitadas,
           costoPorCama: registro.costoPorCama,
           noches: dias,
@@ -207,11 +275,20 @@ export class RegistrosService {
           piso: registro.habitacion.piso,
           habitacionNumero: registro.habitacion.numero,
           documentoIdentidad: registro.documentoIdentidad,
-          metodoPago: registro.metodoPago,
+          metodoPago: lineasPago[0].metodoPago,
           renovarFinal: registro.renovar,
           atendio: registro.atendio,
         });
-        await manager.save(historial);
+        const historialGuardado = await manager.save(historial);
+
+        await this.crearIngresos(
+          manager,
+          lineasPago,
+          ConceptoIngreso.HOSPEDAJE,
+          historialGuardado.id,
+          registro.id,
+          ahora,
+        );
       }
       const guardado = await manager.save(registro);
       return this.conStatus(guardado);
@@ -228,8 +305,16 @@ export class RegistrosService {
   // momento de la salida: un cargo extra (otroCobroCheckout, ej. daños
   // o consumo) y/o una multa por checkout tardío (multaTardio, si ya
   // pasaron las 12 pm y el huésped no había salido). Ambos son
-  // opcionales y quedan en 0 si no se mandan.
-  async checkout(id: number, otroCobroCheckout = 0, multaTardio = 0) {
+  // opcionales y quedan en 0 si no se mandan. Si no se especifica
+  // método de pago para uno que sí tiene monto, se asume EFECTIVO
+  // (compatibilidad con el frontend viejo, que no lo preguntaba).
+  async checkout(
+    id: number,
+    otroCobroCheckout = 0,
+    otroCobroCheckoutMetodoPago?: MetodoPago,
+    multaTardio = 0,
+    multaTardioMetodoPago?: MetodoPago,
+  ) {
     return this.dataSource.transaction(async (manager) => {
       const registro = await manager.findOne(Registro, {
         where: { id },
@@ -240,7 +325,7 @@ export class RegistrosService {
       const checkOutReal = new Date();
       const totalExtra = otroCobroCheckout + multaTardio;
 
-      const historial = manager.create('Historial', {
+      const historial = manager.create(Historial, {
         registroOriginalId: registro.id,
         tipo: TipoEvento.CHECKOUT,
         fechaEvento: checkOutReal,
@@ -258,11 +343,32 @@ export class RegistrosService {
         piso: registro.habitacion.piso,
         habitacionNumero: registro.habitacion.numero,
         documentoIdentidad: registro.documentoIdentidad,
-        metodoPago: registro.metodoPago,
+        metodoPago: otroCobroCheckoutMetodoPago ?? multaTardioMetodoPago ?? registro.metodoPago,
         renovarFinal: registro.renovar,
         atendio: registro.atendio,
       });
-      await manager.save(historial);
+      const historialGuardado = await manager.save(historial);
+
+      if (otroCobroCheckout > 0) {
+        await this.crearIngresos(
+          manager,
+          [{ metodoPago: otroCobroCheckoutMetodoPago ?? MetodoPago.EFECTIVO, cantidad: otroCobroCheckout }],
+          ConceptoIngreso.COBRO_EXTRA,
+          historialGuardado.id,
+          registro.id,
+          checkOutReal,
+        );
+      }
+      if (multaTardio > 0) {
+        await this.crearIngresos(
+          manager,
+          [{ metodoPago: multaTardioMetodoPago ?? MetodoPago.EFECTIVO, cantidad: multaTardio }],
+          ConceptoIngreso.MULTA,
+          historialGuardado.id,
+          registro.id,
+          checkOutReal,
+        );
+      }
 
       registro.otroCobroCheckout = otroCobroCheckout;
       registro.multaTardio = multaTardio;
