@@ -53,6 +53,7 @@ export class RegistrosController {
   checkout(@Param('id', ParseIntPipe) id: number, @Body() dto: CheckoutDto) {
     return this.registrosService.checkout(
       id,
+      dto.cobrosExtra,
       dto.otroCobroCheckout,
       dto.otroCobroCheckoutMetodoPago,
       dto.multaTardio,

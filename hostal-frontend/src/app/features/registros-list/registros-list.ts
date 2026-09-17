@@ -1,17 +1,18 @@
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
-import { DatePipe } from '@angular/common';
+import { DatePipe, CurrencyPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RegistrosService } from '../../core/services/registros.service';
 import { HabitacionesService } from '../../core/services/habitaciones.service';
 import { Status, Registro } from '../../core/models/registro.model';
 import { ConfirmModal } from '../../shared/confirm-modal/confirm-modal/confirm-modal';
 import { LoadingOverlay } from '../../shared/loading-overlay/loading-overlay';
+import { LineasCobro, LineaCobro, resolverLineasCobro } from '../../shared/lineas-cobro/lineas-cobro';
 
 type TipoAccion = 'checkout' | 'no-renovar' | 'renovar';
 
 @Component({
   selector: 'app-registros-list',
-  imports: [DatePipe, ConfirmModal, LoadingOverlay, FormsModule],
+  imports: [DatePipe, CurrencyPipe, ConfirmModal, LoadingOverlay, LineasCobro, FormsModule],
   templateUrl: './registros-list.html',
 })
 export class RegistrosList implements OnInit {
@@ -32,11 +33,16 @@ export class RegistrosList implements OnInit {
   // sugerencia, pero el usuario la puede cambiar en el modal.
   diasRenovacion = signal(1);
 
-  // Solo se usan cuando tipo === 'checkout': cargos que el encargado
-  // puede escribir a mano al confirmar la salida. Ninguno se calcula
-  // solo — quedan en 0 si no se tocan.
-  otroCobroCheckout = signal(0);
+  // Cómo se paga la renovación — mismo componente que en el check-in.
+  lineasRenovacion = signal<LineaCobro[]>([{ metodoPago: 'EFECTIVO', cantidad: 0 }]);
+
+  // Solo se usan cuando tipo === 'checkout'. cobrosExtra es una lista
+  // libre (minibar, daños, etc. — cada uno su propio monto/método/
+  // nota); empieza vacía porque son opcionales. La multa es un solo
+  // monto con su propio método.
+  cobrosExtra = signal<LineaCobro[]>([]);
   multaTardio = signal(0);
+  multaTardioMetodoPago = signal<'EFECTIVO' | 'TARJETA'>('EFECTIVO');
 
   ngOnInit() {
     this.registrosService.cargarRegistros();
@@ -53,12 +59,20 @@ export class RegistrosList implements OnInit {
   pedirConfirmacion(tipo: TipoAccion, registro: Registro) {
     if (tipo === 'renovar') {
       this.diasRenovacion.set(registro.noches); // sugerencia inicial
+      this.lineasRenovacion.set([{ metodoPago: 'EFECTIVO', cantidad: 0 }]);
     }
     if (tipo === 'checkout') {
-      this.otroCobroCheckout.set(0);
+      this.cobrosExtra.set([]);
       this.multaTardio.set(0);
+      this.multaTardioMetodoPago.set('EFECTIVO');
     }
     this.accionPendiente.set({ tipo, registro });
+  }
+
+  // Monto de la renovación (para que las líneas de pago sepan a qué
+  // total deben sumar) — mismo cálculo que hace el backend.
+  montoRenovacionPreview(registro: Registro): number {
+    return registro.camasSolicitadas * registro.costoPorCama * this.diasRenovacion();
   }
 
   cancelarAccion() {
@@ -76,20 +90,30 @@ export class RegistrosList implements OnInit {
       case 'checkout':
         accion$ = this.registrosService.checkout(
           pendiente.registro.id,
-          this.otroCobroCheckout(),
+          this.cobrosExtra(),
           this.multaTardio(),
+          this.multaTardioMetodoPago(),
         );
         break;
       case 'no-renovar':
         accion$ = this.registrosService.actualizarRenovar(pendiente.registro.id, 'NO');
         break;
-      case 'renovar':
+      case 'renovar': {
+        const total = this.montoRenovacionPreview(pendiente.registro);
+        const pagos = resolverLineasCobro(this.lineasRenovacion(), total);
+        const suma = pagos.reduce((s, l) => s + (Number(l.cantidad) || 0), 0);
+        if (Math.abs(suma - total) > 0.01) {
+          this.errorAccion.set('Los pagos no suman el total de la renovación — revisa los montos.');
+          return;
+        }
         accion$ = this.registrosService.actualizarRenovar(
           pendiente.registro.id,
           'SI',
           this.diasRenovacion(),
+          pagos,
         );
         break;
+      }
     }
 
     this.errorAccion.set('');

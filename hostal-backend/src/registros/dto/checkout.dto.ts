@@ -1,12 +1,23 @@
-import { IsEnum, IsNumber, IsOptional, Min } from 'class-validator';
+import { ArrayMinSize, IsArray, IsEnum, IsNumber, IsOptional, Min, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 import { MetodoPago } from '../entities/registro.entity';
+import { CobroExtraDto } from './cobro-extra.dto';
 
-// Los dos cargos que se pueden decidir a mano justo al confirmar el
-// checkout. Ambos opcionales: si no se mandan, no se cobra nada extra.
-// El método de pago de cada uno es opcional por compatibilidad hacia
-// atrás — si hay monto pero no se especifica método, el backend asume
-// EFECTIVO (ver registros.service.ts).
+// Los cargos que se pueden decidir a mano justo al confirmar el
+// checkout. Todos opcionales: si no se manda nada, no se cobra extra.
 export class CheckoutDto {
+  // Lista de cargos extra (minibar, daños, etc.) — puede haber varios,
+  // cada uno con su propio monto/método/nota.
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => CobroExtraDto)
+  cobrosExtra?: CobroExtraDto[];
+
+  // DEPRECADOS: usar `cobrosExtra`. Se mantienen por compatibilidad
+  // hacia atrás — si se mandan sin `cobrosExtra`, se arma una sola
+  // línea de cobro extra con estos valores.
   @IsOptional()
   @IsNumber()
   @Min(0)

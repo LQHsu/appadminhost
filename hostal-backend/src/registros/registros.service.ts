@@ -51,7 +51,7 @@ export class RegistrosService {
   // mismo evento de Historial y al mismo huésped.
   private async crearIngresos(
     manager: EntityManager,
-    pagos: PagoDto[],
+    pagos: Array<{ metodoPago: MetodoPago; cantidad: number; nota?: string }>,
     concepto: ConceptoIngreso,
     historialId: number,
     registroId: number,
@@ -64,6 +64,7 @@ export class RegistrosService {
         concepto,
         metodoPago: pago.metodoPago,
         cantidad: pago.cantidad,
+        nota: pago.nota,
         fecha,
       });
       await manager.save(ingreso);
@@ -302,19 +303,30 @@ export class RegistrosService {
   //
   // El cobro de la estadía en sí ya se registró antes (CHECK_IN y cada
   // RENOVACION); aquí solo se cobra lo que se decida a mano en el
-  // momento de la salida: un cargo extra (otroCobroCheckout, ej. daños
-  // o consumo) y/o una multa por checkout tardío (multaTardio, si ya
-  // pasaron las 12 pm y el huésped no había salido). Ambos son
-  // opcionales y quedan en 0 si no se mandan. Si no se especifica
-  // método de pago para uno que sí tiene monto, se asume EFECTIVO
-  // (compatibilidad con el frontend viejo, que no lo preguntaba).
+  // momento de la salida: uno o varios cargos extra (cobrosExtra, ej.
+  // minibar, daños) y/o una multa por checkout tardío (multaTardio, si
+  // ya pasaron las 12 pm y el huésped no había salido). Todo opcional,
+  // queda en 0/vacío si no se manda. Si no se especifica método de
+  // pago para uno que sí tiene monto, se asume EFECTIVO (compatibilidad
+  // con el frontend viejo, que no lo preguntaba).
   async checkout(
     id: number,
+    cobrosExtra?: Array<{ metodoPago: MetodoPago; cantidad: number; nota?: string }>,
     otroCobroCheckout = 0,
     otroCobroCheckoutMetodoPago?: MetodoPago,
     multaTardio = 0,
     multaTardioMetodoPago?: MetodoPago,
   ) {
+    // Compatibilidad hacia atrás: si no mandan `cobrosExtra` pero sí el
+    // viejo `otroCobroCheckout`, se arma una sola línea con eso.
+    const listaCobrosExtra =
+      cobrosExtra && cobrosExtra.length > 0
+        ? cobrosExtra
+        : otroCobroCheckout > 0
+          ? [{ metodoPago: otroCobroCheckoutMetodoPago ?? MetodoPago.EFECTIVO, cantidad: otroCobroCheckout }]
+          : [];
+    const totalCobrosExtra = listaCobrosExtra.reduce((s, c) => s + c.cantidad, 0);
+
     return this.dataSource.transaction(async (manager) => {
       const registro = await manager.findOne(Registro, {
         where: { id },
@@ -323,7 +335,7 @@ export class RegistrosService {
       if (!registro) throw new NotFoundException(`Registro ${id} no encontrado`);
 
       const checkOutReal = new Date();
-      const totalExtra = otroCobroCheckout + multaTardio;
+      const totalExtra = totalCobrosExtra + multaTardio;
 
       const historial = manager.create(Historial, {
         registroOriginalId: registro.id,
@@ -337,22 +349,22 @@ export class RegistrosService {
         camas: registro.camasSolicitadas,
         costoPorCama: registro.costoPorCama,
         noches: registro.noches,
-        otroCobro: otroCobroCheckout,
+        otroCobro: totalCobrosExtra,
         totalCobrado: totalExtra,
         multa: multaTardio,
         piso: registro.habitacion.piso,
         habitacionNumero: registro.habitacion.numero,
         documentoIdentidad: registro.documentoIdentidad,
-        metodoPago: otroCobroCheckoutMetodoPago ?? multaTardioMetodoPago ?? registro.metodoPago,
+        metodoPago: listaCobrosExtra[0]?.metodoPago ?? multaTardioMetodoPago ?? registro.metodoPago,
         renovarFinal: registro.renovar,
         atendio: registro.atendio,
       });
       const historialGuardado = await manager.save(historial);
 
-      if (otroCobroCheckout > 0) {
+      if (listaCobrosExtra.length > 0) {
         await this.crearIngresos(
           manager,
-          [{ metodoPago: otroCobroCheckoutMetodoPago ?? MetodoPago.EFECTIVO, cantidad: otroCobroCheckout }],
+          listaCobrosExtra,
           ConceptoIngreso.COBRO_EXTRA,
           historialGuardado.id,
           registro.id,
@@ -370,7 +382,7 @@ export class RegistrosService {
         );
       }
 
-      registro.otroCobroCheckout = otroCobroCheckout;
+      registro.otroCobroCheckout = totalCobrosExtra;
       registro.multaTardio = multaTardio;
       registro.totalACobrar = Number(registro.totalACobrar) + totalExtra;
       registro.cerrado = true;

@@ -1,7 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { API_URL } from '../config/api.config';
-import { CreateRegistroDto, Registro, Renovar } from '../models/registro.model';
+import { CreateRegistroDto, PagoDto, Registro, Renovar } from '../models/registro.model';
 
 @Injectable({ providedIn: 'root' })
 export class RegistrosService {
@@ -31,21 +31,24 @@ export class RegistrosService {
   }
 
   // diasRenovacion solo aplica cuando renovar === 'SI'; el backend lo
-  // ignora para 'NO'.
-  actualizarRenovar(id: number, renovar: Renovar, diasRenovacion?: number) {
+  // ignora para 'NO'. pagos: cómo se pagó la renovación (solo aplica
+  // cuando renovar === 'SI').
+  actualizarRenovar(id: number, renovar: Renovar, diasRenovacion?: number, pagos?: PagoDto[]) {
     return this.http.patch<Registro>(`${API_URL}/registros/${id}/renovar`, {
       renovar,
       diasRenovacion,
+      pagos,
     });
   }
 
-  // otroCobroCheckout: cargo extra decidido al salir (ej. daños/consumo).
-  // multaTardio: multa manual por checkout después de las 12 pm.
-  // Ambos opcionales, se capturan a mano en el modal de confirmación.
-  checkout(id: number, otroCobroCheckout?: number, multaTardio?: number) {
+  // cobrosExtra: uno o varios cargos extra decididos al salir (ej.
+  // minibar, daños). multaTardio/multaTardioMetodoPago: multa manual
+  // por checkout después de las 12 pm. Todo opcional.
+  checkout(id: number, cobrosExtra?: PagoDto[], multaTardio?: number, multaTardioMetodoPago?: string) {
     return this.http.post(`${API_URL}/registros/${id}/checkout`, {
-      otroCobroCheckout,
+      cobrosExtra,
       multaTardio,
+      multaTardioMetodoPago,
     });
   }
 }

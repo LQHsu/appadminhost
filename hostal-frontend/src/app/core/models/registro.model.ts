@@ -34,6 +34,14 @@ export interface Registro {
   vencido: boolean;
 }
 
+// Una línea de pago: cuánto y con qué método. Un mismo cobro puede
+// tener varias — así se representa "mitad efectivo, mitad tarjeta".
+export interface PagoDto {
+  metodoPago: MetodoPago;
+  cantidad: number;
+  nota?: string;
+}
+
 // Solo las "celdas amarillas": lo único que el frontend puede enviar
 // al crear un registro. "Noches" ya no se manda — el backend la
 // calcula sola a partir de checkIn/checkOutFecha.
@@ -49,7 +57,8 @@ export interface CreateRegistroDto {
   checkOutFecha: string;
   habitacionId: number;
   documentoIdentidad: string;
-  metodoPago: MetodoPago;
+  // Cómo se pagó el total — una o varias líneas.
+  pagos: PagoDto[];
   renovar?: Renovar;
   atendio: string;
   otroCobro?: number;

@@ -111,15 +111,13 @@
       />
     </div>
 
-    <div>
-      <label class="block text-sm font-medium text-slate-600 mb-1">Método de pago</label>
-      <select
-        formControlName="metodoPago"
-        class="w-full rounded border-slate-300 focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
-      >
-        <option value="EFECTIVO">Efectivo</option>
-        <option value="TARJETA">Tarjeta</option>
-      </select>
+    <div class="sm:col-span-2">
+      <label class="block text-sm font-medium text-slate-600 mb-1">Cómo se paga</label>
+      <app-lineas-cobro
+        [lineas]="lineasPago()"
+        (lineasChange)="lineasPago.set($event)"
+        [totalObjetivo]="totalPreview()"
+      />
     </div>
 
     <div>
@@ -194,8 +192,12 @@
     <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-500 border-t pt-3">
       <dt>Documento</dt>
       <dd class="text-slate-700 text-right">{{ form.value.documentoIdentidad }}</dd>
-      <dt>Método de pago</dt>
-      <dd class="text-slate-700 text-right">{{ form.value.metodoPago }}</dd>
+      <dt>Pago</dt>
+      <dd class="text-slate-700 text-right">
+        @for (l of lineasResueltas(); track $index) {
+          <div>{{ l.metodoPago }}: {{ l.cantidad | currency: 'MXN' }}</div>
+        }
+      </dd>
       <dt>Costo por cama</dt>
       <dd class="text-slate-700 text-right">{{ form.value.costoPorCama | currency: 'MXN' }}</dd>
       <dt>Noches</dt>

@@ -14,16 +14,12 @@ export enum ConceptoIngreso {
   COBRO_EXTRA = 'COBRO_EXTRA',
 }
 
-// FASE 1 de la migración a "varios métodos de pago por huésped": esta
-// tabla por ahora solo EXISTE, nada la escribe ni la lee todavía — el
-// comportamiento actual (Historial.metodoPago/totalCobrado) sigue
-// siendo la fuente de verdad hasta la Fase 2 (backfill) y Fase 3
-// (backend escribiendo aquí en vez de los campos viejos).
-//
-// Una vez en uso: cada evento de Historial (un check-in, una
-// renovación, un checkout) puede tener VARIAS filas de Ingreso — una
-// por cada método de pago que se usó para cubrirlo. Así "$1000, mitad
-// efectivo mitad tarjeta" deja de ser imposible de representar.
+// Cada evento de Historial (un check-in, una renovación, un checkout)
+// puede tener VARIAS filas de Ingreso — una por cada método de pago
+// que se usó para cubrirlo. Así "$1000, mitad efectivo mitad tarjeta"
+// deja de ser imposible de representar. En CHECKOUT además puede haber
+// varias filas COBRO_EXTRA (varios cargos distintos: minibar, daños,
+// etc.), cada una con su propia nota.
 @Entity()
 export class Ingreso {
   @PrimaryGeneratedColumn()
@@ -53,4 +49,10 @@ export class Ingreso {
   // reportes pueden sumar directo sobre Ingreso sin hacer join.
   @Column()
   fecha: Date;
+
+  // Descripción corta y opcional (ej. "minibar", "toalla dañada") —
+  // sobre todo útil en COBRO_EXTRA, donde puede haber varias filas
+  // distintas y conviene saber qué fue cada una.
+  @Column({ nullable: true })
+  nota: string;
 }

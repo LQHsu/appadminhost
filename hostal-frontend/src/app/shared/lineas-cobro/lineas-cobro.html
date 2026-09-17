@@ -1,0 +1,62 @@
+<div class="space-y-2">
+  @for (linea of lineas(); track $index) {
+    <div class="flex items-center gap-2">
+      @if (mostrarNota()) {
+        <input
+          type="text"
+          placeholder="Nota (opcional)"
+          [ngModel]="linea.nota"
+          (ngModelChange)="actualizarNota($index, $event)"
+          class="flex-1 rounded border-slate-300 text-sm"
+        />
+      }
+
+      <select
+        [ngModel]="linea.metodoPago"
+        (ngModelChange)="actualizarMetodo($index, $event)"
+        class="rounded border-slate-300 text-sm"
+      >
+        <option value="EFECTIVO">Efectivo</option>
+        <option value="TARJETA">Tarjeta</option>
+      </select>
+
+      @if (mostrarCantidadEditable()) {
+        <input
+          type="number"
+          min="0"
+          step="0.01"
+          [ngModel]="linea.cantidad"
+          (ngModelChange)="actualizarCantidad($index, $event)"
+          class="w-24 rounded border-slate-300 text-sm"
+        />
+      } @else {
+        <span class="text-sm text-slate-700 w-24 text-right">{{ totalObjetivo() | currency: 'MXN' }}</span>
+      }
+
+      @if (lineas().length > 1 || totalObjetivo() === undefined) {
+        <button
+          type="button"
+          (click)="quitarLinea($index)"
+          class="text-red-500 hover:text-red-700 text-sm px-1"
+          aria-label="Quitar"
+        >
+          ✕
+        </button>
+      }
+    </div>
+  }
+
+  <button type="button" (click)="agregarLinea()" class="text-xs text-sky-600 hover:underline">
+    {{ etiquetaAgregar() }}
+  </button>
+
+  @if (totalObjetivo() !== undefined && lineas().length > 1) {
+    @if (restante() === 0) {
+      <p class="text-xs text-emerald-600">✓ Cuadra con el total ({{ totalObjetivo() | currency: 'MXN' }})</p>
+    } @else if (restante()! > 0) {
+      <p class="text-xs text-amber-600">Falta {{ restante() | currency: 'MXN' }} por asignar</p>
+    } @else {
+      <p class="text-xs text-red-600">Sobran {{ -restante()! | currency: 'MXN' }} — reduce algún monto</p>
+    }
+  }
+</div>

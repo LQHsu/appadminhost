@@ -125,32 +125,39 @@
               </p>
             }
 
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="block text-xs font-medium text-slate-600 mb-1">Otro cobro (extra)</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  [ngModel]="otroCobroCheckout()"
-                  (ngModelChange)="otroCobroCheckout.set($event)"
-                  class="w-full rounded border-slate-300"
-                />
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-slate-600 mb-1">Multa por checkout tardío</label>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Cobros extra (opcional)</label>
+              <app-lineas-cobro
+                [lineas]="cobrosExtra()"
+                (lineasChange)="cobrosExtra.set($event)"
+                [mostrarNota]="true"
+                etiquetaAgregar="+ Agregar cobro extra"
+              />
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Multa por checkout tardío</label>
+              <div class="flex items-center gap-2">
+                <select
+                  [ngModel]="multaTardioMetodoPago()"
+                  (ngModelChange)="multaTardioMetodoPago.set($event)"
+                  class="rounded border-slate-300 text-sm"
+                >
+                  <option value="EFECTIVO">Efectivo</option>
+                  <option value="TARJETA">Tarjeta</option>
+                </select>
                 <input
                   type="number"
                   min="0"
                   step="0.01"
                   [ngModel]="multaTardio()"
                   (ngModelChange)="multaTardio.set($event)"
-                  class="w-full rounded border-slate-300"
+                  class="w-24 rounded border-slate-300"
                 />
               </div>
             </div>
             <p class="text-slate-500 text-xs">
-              Ambos son opcionales y se dejan en $0 si no aplica; se suman al total de la estadía.
+              Ambos son opcionales y se dejan en $0/vacío si no aplica; se suman al total de la estadía.
             </p>
           } @else if (p.tipo === 'no-renovar') {
             <p class="text-slate-500 text-xs">El huésped quedará marcado como "no renovó" (status NO).</p>
@@ -167,8 +174,17 @@
               />
             </div>
             <p class="text-slate-500 text-xs">
-              El check-out se recorrerá {{ diasRenovacion() }} día(s) y se sumará el cobro correspondiente.
+              El check-out se recorrerá {{ diasRenovacion() }} día(s) — total a cobrar:
+              {{ montoRenovacionPreview(p.registro) | currency: 'MXN' }}
             </p>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Cómo se paga</label>
+              <app-lineas-cobro
+                [lineas]="lineasRenovacion()"
+                (lineasChange)="lineasRenovacion.set($event)"
+                [totalObjetivo]="montoRenovacionPreview(p.registro)"
+              />
+            </div>
           }
         </div>
       }

@@ -5,6 +5,7 @@ import { RegistrosService } from '../../core/services/registros.service';
 import { HabitacionesService } from '../../core/services/habitaciones.service';
 import { ConfirmModal } from '../../shared/confirm-modal/confirm-modal/confirm-modal';
 import { LoadingOverlay } from '../../shared/loading-overlay/loading-overlay';
+import { LineasCobro, LineaCobro, resolverLineasCobro } from '../../shared/lineas-cobro/lineas-cobro';
 
 // Formatea un Date al formato que espera <input type="datetime-local">
 // (YYYY-MM-DDTHH:mm, en hora LOCAL — a diferencia de toISOString() que
@@ -34,7 +35,7 @@ const MS_POR_DIA = 1000 * 60 * 60 * 24;
 
 @Component({
   selector: 'app-registro-form',
-  imports: [ReactiveFormsModule, ConfirmModal, LoadingOverlay, CurrencyPipe, DatePipe],
+  imports: [ReactiveFormsModule, ConfirmModal, LoadingOverlay, LineasCobro, CurrencyPipe, DatePipe],
   templateUrl: './registro-form.html',
 })
 export class RegistroForm implements OnInit {
@@ -62,12 +63,15 @@ export class RegistroForm implements OnInit {
       // las 12pm sin importar lo que se vea aquí.
       checkOutFecha: [mananaInput(), Validators.required],
       documentoIdentidad: ['', Validators.required],
-      metodoPago: ['EFECTIVO' as 'EFECTIVO' | 'TARJETA', Validators.required],
       atendio: ['', Validators.required],
       otroCobro: [0, [Validators.min(0)]],
     },
     { validators: [this.camasDisponiblesValidator(this.habitacionesService), this.fechasValidator] },
   );
+
+  // Cómo se paga el total — una o varias líneas (mitad efectivo, mitad
+  // tarjeta, etc.). Por defecto un solo renglón con el total completo.
+  lineasPago = signal<LineaCobro[]>([{ metodoPago: 'EFECTIVO', cantidad: 0 }]);
 
   ngOnInit() {
     this.habitacionesService.cargarHabitaciones();
@@ -84,6 +88,13 @@ export class RegistroForm implements OnInit {
       this.form.markAllAsTouched();
       return;
     }
+    const lineas = resolverLineasCobro(this.lineasPago(), this.totalPreview());
+    const suma = lineas.reduce((s, l) => s + (Number(l.cantidad) || 0), 0);
+    if (Math.abs(suma - this.totalPreview()) > 0.01) {
+      this.mensajeError = 'Los pagos no suman el total a cobrar — revisa los montos.';
+      return;
+    }
+    this.mensajeError = '';
     this.mostrarConfirmacion.set(true);
   }
 
@@ -97,12 +108,14 @@ export class RegistroForm implements OnInit {
     this.mensajeError = '';
 
     const { checkIn, checkOutFecha, ...resto } = this.form.getRawValue();
+    const pagos = resolverLineasCobro(this.lineasPago(), this.totalPreview());
 
     this.registrosService
       .crearRegistro({
         ...resto,
         checkIn: new Date(checkIn).toISOString(),
         checkOutFecha,
+        pagos,
       })
       .subscribe({
         next: () => {
@@ -128,10 +141,10 @@ export class RegistroForm implements OnInit {
       checkIn: ahoraInput(),
       checkOutFecha: mananaInput(),
       documentoIdentidad: '',
-      metodoPago: 'EFECTIVO',
       atendio: '',
       otroCobro: 0,
     });
+    this.lineasPago.set([{ metodoPago: 'EFECTIVO', cantidad: 0 }]);
   }
 
   // --- Datos para el resumen del modal de confirmación ---
@@ -163,6 +176,13 @@ export class RegistroForm implements OnInit {
   totalPreview(): number {
     const { camasSolicitadas, costoPorCama, otroCobro } = this.form.value;
     return (camasSolicitadas ?? 0) * (costoPorCama ?? 0) * this.nochesCalculadas() + (otroCobro ?? 0);
+  }
+
+  // Para el resumen del modal: con un solo método, muestra el total
+  // completo (no lo que haya quedado guardado en la línea, que no se
+  // deja editar en ese caso — ver LineasCobro).
+  lineasResueltas(): LineaCobro[] {
+    return resolverLineasCobro(this.lineasPago(), this.totalPreview());
   }
 
   camasDisponiblesValidator(habitacionesService: HabitacionesService) {
