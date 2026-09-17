@@ -1,6 +1,6 @@
 import { MetodoPago, Renovar } from './registro.model';
 
-export type TipoEvento = 'CHECK_IN' | 'RENOVACION' | 'CHECKOUT';
+export type TipoEvento = 'CHECK_IN' | 'RENOVACION' | 'COBRO_EXTRA' | 'CHECKOUT';
 
 export interface Historial {
   id: number;

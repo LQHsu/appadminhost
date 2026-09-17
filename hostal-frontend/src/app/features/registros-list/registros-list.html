@@ -88,6 +88,12 @@
                   >
                     Checkout
                   </button>
+                  <button
+                    (click)="pedirConfirmacion('cobro-extra', r)"
+                    class="text-indigo-600 hover:underline text-xs"
+                  >
+                    Cobro extra
+                  </button>
                 </td>
               </tr>
             }
@@ -161,6 +167,19 @@
             </p>
           } @else if (p.tipo === 'no-renovar') {
             <p class="text-slate-500 text-xs">El huésped quedará marcado como "no renovó" (status NO).</p>
+          } @else if (p.tipo === 'cobro-extra') {
+            <p class="text-slate-500 text-xs">
+              Se cobra ahora mismo, sin que el huésped haga checkout — sigue hospedado normal.
+            </p>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Cobros</label>
+              <app-lineas-cobro
+                [lineas]="cobrosExtraDirecto()"
+                (lineasChange)="cobrosExtraDirecto.set($event)"
+                [mostrarNota]="true"
+                etiquetaAgregar="+ Agregar cobro"
+              />
+            </div>
           } @else {
             <!-- tipo 'renovar': aquí es donde pedimos el dato extra -->
             <div>

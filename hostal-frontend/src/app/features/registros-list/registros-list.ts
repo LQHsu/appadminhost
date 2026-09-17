@@ -8,7 +8,7 @@ import { ConfirmModal } from '../../shared/confirm-modal/confirm-modal/confirm-m
 import { LoadingOverlay } from '../../shared/loading-overlay/loading-overlay';
 import { LineasCobro, LineaCobro, resolverLineasCobro } from '../../shared/lineas-cobro/lineas-cobro';
 
-type TipoAccion = 'checkout' | 'no-renovar' | 'renovar';
+type TipoAccion = 'checkout' | 'no-renovar' | 'renovar' | 'cobro-extra';
 
 @Component({
   selector: 'app-registros-list',
@@ -44,6 +44,11 @@ export class RegistrosList implements OnInit {
   multaTardio = signal(0);
   multaTardioMetodoPago = signal<'EFECTIVO' | 'TARJETA'>('EFECTIVO');
 
+  // Solo se usa cuando tipo === 'cobro-extra': igual que los cobros
+  // extra del checkout, pero sin que el huésped tenga que salir. Lista
+  // separada de la de checkout para no mezclar los dos flujos.
+  cobrosExtraDirecto = signal<LineaCobro[]>([]);
+
   ngOnInit() {
     this.registrosService.cargarRegistros();
     this.habitacionesService.cargarDisponibilidad();
@@ -65,6 +70,9 @@ export class RegistrosList implements OnInit {
       this.cobrosExtra.set([]);
       this.multaTardio.set(0);
       this.multaTardioMetodoPago.set('EFECTIVO');
+    }
+    if (tipo === 'cobro-extra') {
+      this.cobrosExtraDirecto.set([]);
     }
     this.accionPendiente.set({ tipo, registro });
   }
@@ -114,6 +122,15 @@ export class RegistrosList implements OnInit {
         );
         break;
       }
+      case 'cobro-extra': {
+        const cobros = this.cobrosExtraDirecto();
+        if (cobros.length === 0 || cobros.some((c) => !(Number(c.cantidad) > 0))) {
+          this.errorAccion.set('Agrega al menos un cobro con un monto mayor a $0.');
+          return;
+        }
+        accion$ = this.registrosService.cobroExtra(pendiente.registro.id, cobros);
+        break;
+      }
     }
 
     this.errorAccion.set('');
@@ -141,6 +158,8 @@ export class RegistrosList implements OnInit {
         return 'Confirmar "No renovar"';
       case 'renovar':
         return 'Renovar hospedaje';
+      case 'cobro-extra':
+        return 'Registrar cobro extra';
     }
   });
 

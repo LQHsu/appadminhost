@@ -64,6 +64,8 @@ export class ReporteDiario implements OnInit {
         return 'Check-in';
       case 'RENOVACION':
         return 'Renovación';
+      case 'COBRO_EXTRA':
+        return 'Cobro extra';
       case 'CHECKOUT':
         return 'Checkout';
     }
@@ -83,6 +85,8 @@ export class ReporteDiario implements OnInit {
         return 'bg-sky-100 text-sky-700';
       case 'RENOVACION':
         return 'bg-emerald-100 text-emerald-700';
+      case 'COBRO_EXTRA':
+        return 'bg-amber-100 text-amber-700';
       case 'CHECKOUT':
         return 'bg-slate-100 text-slate-600';
     }

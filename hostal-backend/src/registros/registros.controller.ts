@@ -11,6 +11,7 @@ import { RegistrosService } from './registros.service';
 import { CreateRegistroDto } from './dto/create-registro.dto';
 import { CheckoutDto } from './dto/checkout.dto';
 import { ActualizarRenovarDto } from './dto/actualizar-renovar.dto';
+import { RegistrarCobroExtraDto } from './dto/registrar-cobro-extra.dto';
 
 @Controller('registros')
 export class RegistrosController {
@@ -59,5 +60,12 @@ export class RegistrosController {
       dto.multaTardio,
       dto.multaTardioMetodoPago,
     );
+  }
+
+  // Cobro extra a mitad de estadía (minibar, daños, etc.) sin que el
+  // huésped tenga que hacer checkout todavía.
+  @Post(':id/cobro-extra')
+  cobroExtra(@Param('id', ParseIntPipe) id: number, @Body() dto: RegistrarCobroExtraDto) {
+    return this.registrosService.cobroExtra(id, dto.cobros);
   }
 }

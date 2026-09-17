@@ -51,4 +51,10 @@ export class RegistrosService {
       multaTardioMetodoPago,
     });
   }
+
+  // Cobro extra a mitad de estadía (minibar, daños, etc.) sin que el
+  // huésped tenga que hacer checkout todavía.
+  cobroExtra(id: number, cobros: PagoDto[]) {
+    return this.http.post<Registro>(`${API_URL}/registros/${id}/cobro-extra`, { cobros });
+  }
 }

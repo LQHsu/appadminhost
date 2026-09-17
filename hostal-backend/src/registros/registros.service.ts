@@ -392,4 +392,58 @@ export class RegistrosService {
       return { message: 'Registro movido a historial', registroId: id };
     });
   }
+
+  // Cobro extra a mitad de estadía (minibar, daños, etc.) SIN que el
+  // huésped haga checkout — a diferencia de checkout(), aquí no se
+  // toca checkOutEstimado/renovar/cerrado, solo se suma al total a
+  // cobrar y queda su propia línea en Historial/Ingreso, fechada hoy.
+  async cobroExtra(id: number, cobros: Array<{ metodoPago: MetodoPago; cantidad: number; nota?: string }>) {
+    if (!cobros || cobros.length === 0) {
+      throw new BadRequestException('Debes indicar al menos un cobro extra');
+    }
+    const total = cobros.reduce((s, c) => s + c.cantidad, 0);
+
+    return this.dataSource.transaction(async (manager) => {
+      const registro = await manager.findOne(Registro, {
+        where: { id },
+        relations: { habitacion: true },
+      });
+      if (!registro) throw new NotFoundException(`Registro ${id} no encontrado`);
+      if (registro.cerrado) {
+        throw new BadRequestException('Este registro ya hizo checkout — usa el checkout para cargos de salida');
+      }
+
+      const ahora = new Date();
+      const historial = manager.create(Historial, {
+        registroOriginalId: registro.id,
+        tipo: TipoEvento.COBRO_EXTRA,
+        fechaEvento: ahora,
+        periodoDesde: ahora,
+        periodoHasta: ahora,
+        nombreCliente: registro.nombreCliente,
+        checkIn: registro.checkIn,
+        checkOut: null as unknown as Date,
+        camas: registro.camasSolicitadas,
+        costoPorCama: registro.costoPorCama,
+        noches: registro.noches,
+        otroCobro: total,
+        totalCobrado: total,
+        multa: 0,
+        piso: registro.habitacion.piso,
+        habitacionNumero: registro.habitacion.numero,
+        documentoIdentidad: registro.documentoIdentidad,
+        metodoPago: cobros[0].metodoPago,
+        renovarFinal: registro.renovar,
+        atendio: registro.atendio,
+      });
+      const historialGuardado = await manager.save(historial);
+
+      await this.crearIngresos(manager, cobros, ConceptoIngreso.COBRO_EXTRA, historialGuardado.id, registro.id, ahora);
+
+      registro.totalACobrar = Number(registro.totalACobrar) + total;
+      const guardado = await manager.save(registro);
+
+      return this.conStatus(guardado);
+    });
+  }
 }

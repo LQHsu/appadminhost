@@ -4,12 +4,15 @@ import { MetodoPago, Renovar } from '../../registros/entities/registro.entity';
 // Qué disparó esta línea del historial:
 // - CHECK_IN: se creó el registro (cobro inicial).
 // - RENOVACION: el huésped renovó (cobro solo de los días nuevos).
+// - COBRO_EXTRA: un cargo extra decidido a mitad de la estadía (ej.
+//   minibar, daños) sin que el huésped haga checkout todavía.
 // - CHECKOUT: el huésped salió/cerró el registro (no genera cobro
-//   nuevo, ya se cobró todo en CHECK_IN/RENOVACION; esta línea solo
-//   deja constancia de la salida).
+//   nuevo por la estadía en sí; solo lleva los cargos/multa que se
+//   decidan justo en ese momento).
 export enum TipoEvento {
   CHECK_IN = 'CHECK_IN',
   RENOVACION = 'RENOVACION',
+  COBRO_EXTRA = 'COBRO_EXTRA',
   CHECKOUT = 'CHECKOUT',
 }
 
