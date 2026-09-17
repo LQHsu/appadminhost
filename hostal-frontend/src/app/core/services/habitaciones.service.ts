@@ -1,7 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { API_URL } from '../config/api.config';
-import { CreateHabitacionDto, Disponibilidad, Habitacion } from '../models/habitacion.model';
+import { CreateHabitacionDto, Disponibilidad, Habitacion, UpdateHabitacionDto } from '../models/habitacion.model';
 
 @Injectable({ providedIn: 'root' })
 export class HabitacionesService {
@@ -36,5 +36,9 @@ export class HabitacionesService {
 
   crearHabitacion(dto: CreateHabitacionDto) {
     return this.http.post<Habitacion>(`${API_URL}/habitaciones`, dto);
+  }
+
+  actualizarHabitacion(id: number, dto: UpdateHabitacionDto) {
+    return this.http.patch<Habitacion>(`${API_URL}/habitaciones/${id}`, dto);
   }
 }

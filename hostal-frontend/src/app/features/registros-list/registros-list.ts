@@ -10,6 +10,18 @@ import { LineasCobro, LineaCobro, resolverLineasCobro } from '../../shared/linea
 
 type TipoAccion = 'checkout' | 'no-renovar' | 'renovar' | 'cobro-extra';
 
+// Formatea un Date al formato que espera <input type="datetime-local">
+// (YYYY-MM-DDTHH:mm, en hora LOCAL — a diferencia de toISOString() que
+// da UTC y desfasaría la hora mostrada).
+function aInputDatetimeLocal(fecha: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${fecha.getFullYear()}-${pad(fecha.getMonth() + 1)}-${pad(fecha.getDate())}T${pad(fecha.getHours())}:${pad(fecha.getMinutes())}`;
+}
+
+function ahoraInput(): string {
+  return aInputDatetimeLocal(new Date());
+}
+
 @Component({
   selector: 'app-registros-list',
   imports: [DatePipe, CurrencyPipe, ConfirmModal, LoadingOverlay, LineasCobro, FormsModule],
@@ -44,6 +56,11 @@ export class RegistrosList implements OnInit {
   multaTardio = signal(0);
   multaTardioMetodoPago = signal<'EFECTIVO' | 'TARJETA'>('EFECTIVO');
 
+  // Fecha/hora real de salida — precargada con "ahora" (el caso
+  // normal), pero editable para registrar tarde una salida que ya
+  // pasó, o corregir una equivocada.
+  checkOutReal = signal(ahoraInput());
+
   // Solo se usa cuando tipo === 'cobro-extra': igual que los cobros
   // extra del checkout, pero sin que el huésped tenga que salir. Lista
   // separada de la de checkout para no mezclar los dos flujos.
@@ -70,6 +87,7 @@ export class RegistrosList implements OnInit {
       this.cobrosExtra.set([]);
       this.multaTardio.set(0);
       this.multaTardioMetodoPago.set('EFECTIVO');
+      this.checkOutReal.set(ahoraInput());
     }
     if (tipo === 'cobro-extra') {
       this.cobrosExtraDirecto.set([]);
@@ -95,14 +113,17 @@ export class RegistrosList implements OnInit {
 
     let accion$;
     switch (pendiente.tipo) {
-      case 'checkout':
+      case 'checkout': {
+        const checkOutRealIso = new Date(this.checkOutReal()).toISOString();
         accion$ = this.registrosService.checkout(
           pendiente.registro.id,
           this.cobrosExtra(),
           this.multaTardio(),
           this.multaTardioMetodoPago(),
+          checkOutRealIso,
         );
         break;
+      }
       case 'no-renovar':
         accion$ = this.registrosService.actualizarRenovar(pendiente.registro.id, 'NO');
         break;

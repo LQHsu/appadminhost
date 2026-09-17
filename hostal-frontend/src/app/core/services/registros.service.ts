@@ -43,12 +43,21 @@ export class RegistrosService {
 
   // cobrosExtra: uno o varios cargos extra decididos al salir (ej.
   // minibar, daños). multaTardio/multaTardioMetodoPago: multa manual
-  // por checkout después de las 12 pm. Todo opcional.
-  checkout(id: number, cobrosExtra?: PagoDto[], multaTardio?: number, multaTardioMetodoPago?: string) {
+  // por checkout después de las 12 pm. checkOutReal: opcional — si no
+  // se manda, el backend usa "ahora"; se manda cuando se registra
+  // tarde una salida que ya pasó, o se corrige una equivocada.
+  checkout(
+    id: number,
+    cobrosExtra?: PagoDto[],
+    multaTardio?: number,
+    multaTardioMetodoPago?: string,
+    checkOutReal?: string,
+  ) {
     return this.http.post(`${API_URL}/registros/${id}/checkout`, {
       cobrosExtra,
       multaTardio,
       multaTardioMetodoPago,
+      checkOutReal,
     });
   }
 

@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Body, Param, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, ParseIntPipe } from '@nestjs/common';
 import { HabitacionesService } from './habitaciones.service';
 import { CreateHabitacionDto } from './dto/create-habitacion.dto';
+import { UpdateHabitacionDto } from './dto/update-habitacion.dto';
 
 @Controller('habitaciones')
 export class HabitacionesController {
@@ -9,6 +10,12 @@ export class HabitacionesController {
   @Post()
   create(@Body() dto: CreateHabitacionDto) {
     return this.habitacionesService.create(dto);
+  }
+
+  // Editar piso/número/camas totales de una habitación ya existente.
+  @Patch(':id')
+  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateHabitacionDto) {
+    return this.habitacionesService.update(id, dto);
   }
 
   @Get()

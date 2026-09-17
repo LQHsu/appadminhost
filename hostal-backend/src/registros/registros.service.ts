@@ -311,6 +311,7 @@ export class RegistrosService {
   // con el frontend viejo, que no lo preguntaba).
   async checkout(
     id: number,
+    checkOutRealInput?: string,
     cobrosExtra?: Array<{ metodoPago: MetodoPago; cantidad: number; nota?: string }>,
     otroCobroCheckout = 0,
     otroCobroCheckoutMetodoPago?: MetodoPago,
@@ -334,7 +335,10 @@ export class RegistrosService {
       });
       if (!registro) throw new NotFoundException(`Registro ${id} no encontrado`);
 
-      const checkOutReal = new Date();
+      const checkOutReal = checkOutRealInput ? new Date(checkOutRealInput) : new Date();
+      if (checkOutReal < registro.checkIn) {
+        throw new BadRequestException('La fecha de checkout no puede ser antes del check-in');
+      }
       const totalExtra = totalCobrosExtra + multaTardio;
 
       const historial = manager.create(Historial, {

@@ -19,3 +19,10 @@ export interface CreateHabitacionDto {
   numero: string;
   camasTotales: number;
 }
+
+// Todos opcionales: solo se manda lo que cambió.
+export interface UpdateHabitacionDto {
+  piso?: number;
+  numero?: string;
+  camasTotales?: number;
+}

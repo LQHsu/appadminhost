@@ -132,6 +132,19 @@
             }
 
             <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Fecha y hora de salida</label>
+              <input
+                type="datetime-local"
+                [ngModel]="checkOutReal()"
+                (ngModelChange)="checkOutReal.set($event)"
+                class="w-full rounded border-slate-300 text-sm"
+              />
+              <p class="text-slate-500 text-xs mt-1">
+                Ya viene con la hora actual — cámbiala solo si estás registrando una salida que ya pasó.
+              </p>
+            </div>
+
+            <div>
               <label class="block text-xs font-medium text-slate-600 mb-1">Cobros extra (opcional)</label>
               <app-lineas-cobro
                 [lineas]="cobrosExtra()"
