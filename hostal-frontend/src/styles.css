@@ -10,20 +10,23 @@
    `.no-imprimir` oculta controles interactivos (inputs, botones),
    `.solo-imprimir` muestra en su lugar el mismo dato en texto plano, y
    `.oculto-en-impresion` quita renglones que no aportan nada al PDF
-   (ej. un checkout en $0) sin tocar lo que se ve en pantalla. */
+   (ej. un checkout en $0) sin tocar lo que se ve en pantalla.
+
+   IMPORTANTE: se oculta con `display: none`, NO con `visibility:
+   hidden`. visibility:hidden no le quita el espacio a un elemento en
+   el documento — el resto de la pestaña (los otros reportes, tablas,
+   gráficas) seguía "ahí" ocupando su alto normal aunque invisible, y
+   el navegador paginaba como si todo ese contenido fantasma también
+   se fuera a imprimir, generando varias hojas de más en blanco.
+   display:none sí colapsa el espacio. El selector deja visible
+   `.reporte-diario-print`, sus descendientes, Y sus ancestros
+   (:has(...) — deben "existir" aunque vacíos de su propio contenido,
+   para que ese descendiente pueda dibujarse). */
 @media print {
-  body * {
-    visibility: hidden;
-  }
-  .reporte-diario-print,
-  .reporte-diario-print * {
-    visibility: visible;
+  body :not(.reporte-diario-print, .reporte-diario-print *, :has(.reporte-diario-print)) {
+    display: none !important;
   }
   .reporte-diario-print {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
     box-shadow: none !important;
   }
   .no-imprimir,
