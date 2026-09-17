@@ -1,4 +1,4 @@
-import { ArrayMinSize, IsArray, IsEnum, IsISO8601, IsNumber, IsOptional, Min, ValidateNested } from 'class-validator';
+import { IsArray, IsEnum, IsISO8601, IsNumber, IsOptional, Min, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { MetodoPago } from '../entities/registro.entity';
 import { CobroExtraDto } from './cobro-extra.dto';
@@ -14,10 +14,11 @@ export class CheckoutDto {
   checkOutReal?: string;
 
   // Lista de cargos extra (minibar, daños, etc.) — puede haber varios,
-  // cada uno con su propio monto/método/nota.
+  // cada uno con su propio monto/método/nota, o venir vacía/ausente
+  // si no se cobró nada extra (el frontend siempre manda el array,
+  // aunque esté vacío).
   @IsOptional()
   @IsArray()
-  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => CobroExtraDto)
   cobrosExtra?: CobroExtraDto[];
