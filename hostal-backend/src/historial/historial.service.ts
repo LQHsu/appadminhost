@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, DataSource, In, Repository } from 'typeorm';
+import { Between, DataSource, In, MoreThan, Repository } from 'typeorm';
 import { Historial, TipoEvento } from './entities/historial.entity';
 import { Ingreso, ConceptoIngreso } from './entities/ingreso.entity';
 import { Registro } from '../registros/entities/registro.entity';
@@ -101,6 +101,90 @@ export class HistorialService {
       }
 
       return historial;
+    });
+  }
+
+  // Borra el evento MÁS RECIENTE de una estadía (deshacer el último
+  // error, en orden) — revierte los campos del Registro que ese evento
+  // había tocado. Si era el único evento (necesariamente un CHECK_IN,
+  // el primero en crearse), se borra también el Registro completo.
+  async eliminar(id: number) {
+    return this.dataSource.transaction(async (manager) => {
+      const historial = await manager.findOne(Historial, { where: { id } });
+      if (!historial) throw new NotFoundException(`Historial ${id} no encontrado`);
+
+      // Se compara por id (orden de inserción), no por fechaEvento —
+      // esa ya se puede editar (ver actualizar()) y dejó de ser
+      // confiable como orden real de los eventos.
+      const eventosPosteriores = await manager.count(Historial, {
+        where: { registroOriginalId: historial.registroOriginalId, id: MoreThan(historial.id) },
+      });
+      if (eventosPosteriores > 0) {
+        throw new BadRequestException(
+          'No puedes eliminar este evento porque hay eventos posteriores de la misma estadía — elimínalos primero, en orden',
+        );
+      }
+
+      await manager.delete(Ingreso, { historial: { id } });
+
+      const totalEventos = await manager.count(Historial, {
+        where: { registroOriginalId: historial.registroOriginalId },
+      });
+
+      if (totalEventos === 1) {
+        await manager.delete(Historial, { id });
+        await manager.delete(Registro, { id: historial.registroOriginalId });
+        return { eliminado: true, registroEliminado: true };
+      }
+
+      const registro = await manager.findOne(Registro, { where: { id: historial.registroOriginalId } });
+      if (!registro) {
+        throw new NotFoundException(
+          `No se encontró el registro original #${historial.registroOriginalId} — no se puede revertir`,
+        );
+      }
+
+      switch (historial.tipo) {
+        case TipoEvento.RENOVACION:
+          // periodoDesde de una RENOVACION guarda el checkout estimado
+          // de ANTES de esa renovación (ver actualizarRenovar() en
+          // registros.service.ts) — revertirlo es tan simple como
+          // regresarlo ahí.
+          registro.checkOutEstimado = historial.periodoDesde;
+          break;
+        case TipoEvento.CHECKOUT:
+          registro.cerrado = false;
+          registro.checkOutReal = null as unknown as Date;
+          registro.otroCobroCheckout = 0;
+          registro.multaTardio = 0;
+          break;
+        case TipoEvento.COBRO_EXTRA:
+        case TipoEvento.CHECK_IN:
+          break; // CHECK_IN no debería llegar aquí (siempre es el único evento cuando existe)
+      }
+      registro.totalACobrar = Number(registro.totalACobrar) - Number(historial.totalCobrado);
+      await manager.save(registro);
+
+      await manager.delete(Historial, { id });
+      return { eliminado: true, registroEliminado: false };
+    });
+  }
+
+  // Borra TODA una estadía de un tirón (Registro + todos sus
+  // Historial/Ingreso), sin importar cuántos eventos tenga ni en qué
+  // orden — a diferencia de eliminar(), no valida nada de negocio, es
+  // la salida rápida para cuando todo un registro se hizo mal.
+  async eliminarEstadia(id: number) {
+    return this.dataSource.transaction(async (manager) => {
+      const historial = await manager.findOne(Historial, { where: { id } });
+      if (!historial) throw new NotFoundException(`Historial ${id} no encontrado`);
+
+      const { registroOriginalId } = historial;
+      await manager.delete(Ingreso, { registro: { id: registroOriginalId } });
+      await manager.delete(Historial, { registroOriginalId });
+      await manager.delete(Registro, { id: registroOriginalId });
+
+      return { eliminado: true, registroOriginalId };
     });
   }
 

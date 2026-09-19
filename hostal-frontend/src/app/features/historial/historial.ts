@@ -43,6 +43,14 @@ export class HistorialComponent implements OnInit {
   errorEdicion = signal('');
   enviandoEdicion = signal(false);
 
+  // --- Eliminar (solo el evento más reciente de una estadía, o la
+  // estadía completa sin restricción) — misma clave de edición ---
+
+  eliminacionPendiente = signal<{ h: Historial; modo: 'evento' | 'estadia' } | null>(null);
+  claveEliminacion = signal('');
+  errorEliminacion = signal('');
+  enviandoEliminacion = signal(false);
+
   ngOnInit() {
     this.historialService.cargarHistorial();
     this.consultarReporte();
@@ -153,5 +161,55 @@ export class HistorialComponent implements OnInit {
           this.errorEdicion.set(err.error?.message ?? 'No se pudo guardar la corrección, intenta de nuevo');
         },
       });
+  }
+
+  // `true` si no existe otra fila con el mismo registroOriginalId y un
+  // id mayor — mismo criterio que valida el backend en eliminar(). Solo
+  // sirve para deshabilitar el botón como ayuda visual; la validación
+  // real vive en el servidor.
+  esUltimoEvento(h: Historial): boolean {
+    return !this.historialService
+      .historial()
+      .some((otro) => otro.registroOriginalId === h.registroOriginalId && otro.id > h.id);
+  }
+
+  pedirEliminacion(h: Historial, modo: 'evento' | 'estadia') {
+    this.claveEliminacion.set('');
+    this.errorEliminacion.set('');
+    this.eliminacionPendiente.set({ h, modo });
+  }
+
+  cancelarEliminacion() {
+    this.eliminacionPendiente.set(null);
+    this.errorEliminacion.set('');
+  }
+
+  confirmarEliminacion() {
+    const pendiente = this.eliminacionPendiente();
+    if (!pendiente) return;
+    if (!this.claveEliminacion()) {
+      this.errorEliminacion.set('Escribe la clave de edición.');
+      return;
+    }
+
+    const alGuardar = {
+      next: () => {
+        this.enviandoEliminacion.set(false);
+        this.eliminacionPendiente.set(null);
+        this.historialService.cargarHistorial();
+      },
+      error: (err: { error?: { message?: string } }) => {
+        this.enviandoEliminacion.set(false);
+        this.errorEliminacion.set(err.error?.message ?? 'No se pudo eliminar, intenta de nuevo');
+      },
+    };
+
+    this.errorEliminacion.set('');
+    this.enviandoEliminacion.set(true);
+    if (pendiente.modo === 'evento') {
+      this.historialService.eliminarEvento(pendiente.h.id, this.claveEliminacion()).subscribe(alGuardar);
+    } else {
+      this.historialService.eliminarEstadia(pendiente.h.id, this.claveEliminacion()).subscribe(alGuardar);
+    }
   }
 }

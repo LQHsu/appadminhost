@@ -95,13 +95,31 @@
                   }
                 </td>
                 <td class="py-2 pr-3">
-                  <button
-                    type="button"
-                    (click)="pedirEdicion(h)"
-                    class="px-2 py-1 rounded text-xs font-medium border border-slate-300 text-slate-600 hover:bg-slate-50"
-                  >
-                    Editar
-                  </button>
+                  <div class="flex flex-wrap gap-1">
+                    <button
+                      type="button"
+                      (click)="pedirEdicion(h)"
+                      class="px-2 py-1 rounded text-xs font-medium border border-slate-300 text-slate-600 hover:bg-slate-50"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      [disabled]="!esUltimoEvento(h)"
+                      [title]="esUltimoEvento(h) ? '' : 'Hay eventos posteriores de la misma estadía — elimínalos primero, en orden'"
+                      (click)="pedirEliminacion(h, 'evento')"
+                      class="px-2 py-1 rounded text-xs font-medium border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                    >
+                      Eliminar evento
+                    </button>
+                    <button
+                      type="button"
+                      (click)="pedirEliminacion(h, 'estadia')"
+                      class="px-2 py-1 rounded text-xs font-medium border border-red-600 bg-red-600 text-white hover:bg-red-700"
+                    >
+                      Eliminar estadía
+                    </button>
+                  </div>
                 </td>
               </tr>
             }
@@ -195,4 +213,53 @@
   </app-confirm-modal>
 
   <app-loading-overlay [visible]="enviandoEdicion()" mensaje="Guardando corrección..." />
+
+  <app-confirm-modal
+    [visible]="eliminacionPendiente() !== null"
+    [titulo]="eliminacionPendiente()?.modo === 'estadia' ? 'Eliminar estadía completa' : 'Eliminar evento'"
+    textoConfirmar="Sí, eliminar"
+    textoCancelar="Cancelar"
+    (confirmar)="confirmarEliminacion()"
+    (cancelar)="cancelarEliminacion()"
+  >
+    @if (eliminacionPendiente(); as p) {
+      <div class="space-y-3 text-sm">
+        @if (errorEliminacion()) {
+          <p class="text-red-600 text-xs bg-red-50 border border-red-100 rounded p-2">{{ errorEliminacion() }}</p>
+        }
+        <p class="text-slate-700">
+          {{ etiquetaTipo(p.h.tipo) }} — <span class="font-semibold">{{ p.h.nombreCliente }}</span> — P{{ p.h.piso }} - {{ p.h.habitacionNumero }}
+        </p>
+
+        @if (p.modo === 'estadia') {
+          <p class="text-red-600 text-xs font-medium">
+            Esto elimina TODO el historial de esta estadía (check-in, renovaciones, cobros extra y checkout), sin poder deshacerlo.
+          </p>
+        } @else {
+          @if (esUltimoEvento(p.h) && p.h.tipo === 'CHECK_IN') {
+            <p class="text-red-600 text-xs font-medium">
+              Es el único evento de esta estadía — se eliminará también el registro completo del huésped.
+            </p>
+          } @else {
+            <p class="text-slate-500 text-xs">
+              Se revertirán en el registro del huésped los cambios que hizo este evento (monto, y según el tipo, fecha de salida estimada o estado de checkout).
+            </p>
+          }
+        }
+
+        <div class="border-t pt-3">
+          <label class="block text-xs font-medium text-slate-600 mb-1">Clave de edición</label>
+          <input
+            type="password"
+            [ngModel]="claveEliminacion()"
+            (ngModelChange)="claveEliminacion.set($event)"
+            placeholder="Requerida para eliminar"
+            class="w-full rounded border-slate-300 text-sm"
+          />
+        </div>
+      </div>
+    }
+  </app-confirm-modal>
+
+  <app-loading-overlay [visible]="enviandoEliminacion()" mensaje="Eliminando..." />
 </div>

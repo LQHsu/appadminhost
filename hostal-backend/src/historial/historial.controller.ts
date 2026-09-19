@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Body, Param, Query, ParseIntPipe, UseGuards, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Patch, Delete, Body, Param, Query, ParseIntPipe, UseGuards, BadRequestException } from '@nestjs/common';
 import { HistorialService } from './historial.service';
 import { UpdateHistorialDto } from './dto/update-historial.dto';
 import { EditPasswordGuard } from '../common/edit-password.guard';
@@ -20,6 +20,24 @@ export class HistorialController {
   @UseGuards(EditPasswordGuard)
   actualizar(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateHistorialDto) {
     return this.historialService.actualizar(id, dto);
+  }
+
+  // Borra TODA la estadía a la que pertenece esta fila (Registro +
+  // todos sus Historial/Ingreso), sin restricción de orden — ver
+  // historial.service.ts.
+  @Delete(':id/estadia')
+  @UseGuards(EditPasswordGuard)
+  eliminarEstadia(@Param('id', ParseIntPipe) id: number) {
+    return this.historialService.eliminarEstadia(id);
+  }
+
+  // Borra solo esta fila — únicamente si es el evento MÁS RECIENTE de
+  // su estadía, revirtiendo lo que ese evento le había hecho al
+  // Registro. Ver historial.service.ts para el detalle.
+  @Delete(':id')
+  @UseGuards(EditPasswordGuard)
+  eliminar(@Param('id', ParseIntPipe) id: number) {
+    return this.historialService.eliminar(id);
   }
 
   // Ej: GET /historial/reporte-mensual?anio=2026&mes=8

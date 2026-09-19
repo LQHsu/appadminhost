@@ -44,4 +44,22 @@ export class HistorialService {
       headers: { 'x-edit-password': claveEdicion },
     });
   }
+
+  // Borra solo esta fila — el backend rechaza si no es el evento más
+  // reciente de su estadía.
+  eliminarEvento(id: number, claveEdicion: string) {
+    return this.http.delete<{ eliminado: boolean; registroEliminado: boolean }>(
+      `${API_URL}/historial/${id}`,
+      { headers: { 'x-edit-password': claveEdicion } },
+    );
+  }
+
+  // Borra TODA la estadía a la que pertenece esta fila, sin importar
+  // cuántos eventos tenga.
+  eliminarEstadia(id: number, claveEdicion: string) {
+    return this.http.delete<{ eliminado: boolean; registroOriginalId: number }>(
+      `${API_URL}/historial/${id}/estadia`,
+      { headers: { 'x-edit-password': claveEdicion } },
+    );
+  }
 }
