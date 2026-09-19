@@ -49,6 +49,23 @@ export interface Historial {
   pagos: PagoHistorial[];
 }
 
+// Payload para corregir una fila ya guardada (PATCH /historial/:id) —
+// todo opcional, se manda solo lo que se quiere corregir. No se
+// importa LineaCobro de shared/ aquí a propósito: core/models es una
+// hoja de la que shared/ depende, no al revés.
+export interface PagoLineaEdicion {
+  metodoPago: MetodoPago;
+  cantidad: number;
+  nota?: string;
+}
+
+export interface UpdateHistorialDto {
+  nombreCliente?: string;
+  fechaEvento?: string;
+  totalCobrado?: number;
+  pagos?: PagoLineaEdicion[];
+}
+
 export interface ReporteMensual {
   anio: number;
   mes: number;

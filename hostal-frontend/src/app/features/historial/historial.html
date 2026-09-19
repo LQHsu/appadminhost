@@ -65,6 +65,7 @@
               <th class="py-2 pr-3">Periodo cubierto</th>
               <th class="py-2 pr-3">Monto</th>
               <th class="py-2 pr-3">Método</th>
+              <th class="py-2 pr-3">Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -93,6 +94,15 @@
                     <span class="block">{{ linea }}</span>
                   }
                 </td>
+                <td class="py-2 pr-3">
+                  <button
+                    type="button"
+                    (click)="pedirEdicion(h)"
+                    class="px-2 py-1 rounded text-xs font-medium border border-slate-300 text-slate-600 hover:bg-slate-50"
+                  >
+                    Editar
+                  </button>
+                </td>
               </tr>
             }
           </tbody>
@@ -104,4 +114,85 @@
   <app-reporte-diario />
 
   <app-reporte-anual />
+
+  <app-confirm-modal
+    [visible]="edicionPendiente() !== null"
+    titulo="Corregir movimiento"
+    textoConfirmar="Guardar corrección"
+    textoCancelar="Cancelar"
+    (confirmar)="confirmarEdicion()"
+    (cancelar)="cancelarEdicion()"
+  >
+    @if (edicionPendiente(); as h) {
+      <div class="space-y-3 text-sm">
+        @if (errorEdicion()) {
+          <p class="text-red-600 text-xs bg-red-50 border border-red-100 rounded p-2">{{ errorEdicion() }}</p>
+        }
+        <p class="text-slate-500 text-xs">
+          {{ etiquetaTipo(h.tipo) }} — P{{ h.piso }} - {{ h.habitacionNumero }}
+        </p>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Nombre del cliente</label>
+          <input
+            type="text"
+            [ngModel]="nombreClienteEdit()"
+            (ngModelChange)="nombreClienteEdit.set($event)"
+            class="w-full rounded border-slate-300 text-sm"
+          />
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Fecha del evento</label>
+          <input
+            type="datetime-local"
+            [ngModel]="fechaEventoEdit()"
+            (ngModelChange)="fechaEventoEdit.set($event)"
+            class="w-full rounded border-slate-300 text-sm"
+          />
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Monto total</label>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            [ngModel]="totalCobradoEdit()"
+            (ngModelChange)="totalCobradoEdit.set($event)"
+            class="w-full rounded border-slate-300 text-sm"
+          />
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Cómo se pagó</label>
+          <app-lineas-cobro
+            [lineas]="pagosEdit()"
+            (lineasChange)="pagosEdit.set($event)"
+            [totalObjetivo]="totalCobradoEdit()"
+            [mostrarNota]="true"
+          />
+        </div>
+
+        @if (h.tipo === 'CHECKOUT') {
+          <p class="text-amber-600 text-xs">
+            Nota: el desglose de multa/cobro extra de esta fila no se ajusta automáticamente al corregir el monto.
+          </p>
+        }
+
+        <div class="border-t pt-3">
+          <label class="block text-xs font-medium text-slate-600 mb-1">Clave de edición</label>
+          <input
+            type="password"
+            [ngModel]="claveEdicion()"
+            (ngModelChange)="claveEdicion.set($event)"
+            placeholder="Requerida para guardar"
+            class="w-full rounded border-slate-300 text-sm"
+          />
+        </div>
+      </div>
+    }
+  </app-confirm-modal>
+
+  <app-loading-overlay [visible]="enviandoEdicion()" mensaje="Guardando corrección..." />
 </div>

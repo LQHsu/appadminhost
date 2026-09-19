@@ -1,7 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { API_URL } from '../config/api.config';
-import { Historial, ReporteAnual, ReporteRango, ReporteMensual } from '../models/historial.model';
+import { Historial, ReporteAnual, ReporteRango, ReporteMensual, UpdateHistorialDto } from '../models/historial.model';
 
 @Injectable({ providedIn: 'root' })
 export class HistorialService {
@@ -34,5 +34,14 @@ export class HistorialService {
     this.http
       .get<ReporteRango>(`${API_URL}/historial/reporte-diario`, { params: { desde, hasta } })
       .subscribe((data) => this.reporteDiario.set(data));
+  }
+
+  // Corrige una fila ya guardada. claveEdicion va en un header aparte
+  // de x-api-key (ver edit-password.guard.ts en el backend) — no se
+  // guarda en ningún lado, se manda tal cual se escribió en el modal.
+  actualizarIngreso(id: number, dto: UpdateHistorialDto, claveEdicion: string) {
+    return this.http.patch<Historial>(`${API_URL}/historial/${id}`, dto, {
+      headers: { 'x-edit-password': claveEdicion },
+    });
   }
 }

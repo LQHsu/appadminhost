@@ -1,8 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, In, Repository } from 'typeorm';
+import { Between, DataSource, In, Repository } from 'typeorm';
 import { Historial, TipoEvento } from './entities/historial.entity';
-import { Ingreso } from './entities/ingreso.entity';
+import { Ingreso, ConceptoIngreso } from './entities/ingreso.entity';
+import { Registro } from '../registros/entities/registro.entity';
+import { UpdateHistorialDto } from './dto/update-historial.dto';
 import { medianocheHostal, fechaYMDHostal } from '../common/zona-horaria';
 
 @Injectable()
@@ -12,11 +14,94 @@ export class HistorialService {
     private historialRepo: Repository<Historial>,
     @InjectRepository(Ingreso)
     private ingresoRepo: Repository<Ingreso>,
+    private dataSource: DataSource,
   ) {}
 
   create(data: Partial<Historial>) {
     const historial = this.historialRepo.create(data);
     return this.historialRepo.save(historial);
+  }
+
+  // Corrige una fila ya guardada: el personal se equivoca al capturar
+  // el monto o el método de pago, y hasta ahora no había forma de
+  // arreglarlo sin tocar la base a mano. Protegido aparte por
+  // EditPasswordGuard (ver historial.controller.ts).
+  async actualizar(id: number, dto: UpdateHistorialDto) {
+    return this.dataSource.transaction(async (manager) => {
+      const historial = await manager.findOne(Historial, { where: { id } });
+      if (!historial) throw new NotFoundException(`Historial ${id} no encontrado`);
+
+      const totalAnterior = Number(historial.totalCobrado);
+      const nuevoTotal = dto.totalCobrado ?? totalAnterior;
+
+      if (dto.pagos && dto.pagos.length > 0) {
+        const suma = dto.pagos.reduce((s, p) => s + p.cantidad, 0);
+        if (Math.abs(suma - nuevoTotal) > 0.01) {
+          throw new BadRequestException(
+            `La suma de los pagos ($${suma.toFixed(2)}) no coincide con el total corregido ($${nuevoTotal.toFixed(2)})`,
+          );
+        }
+      }
+
+      // El Registro original solo hace falta si se toca dinero — una
+      // corrección de nombre/fecha no necesita ajustar totalACobrar.
+      let registro: Registro | null = null;
+      if (dto.totalCobrado !== undefined || dto.pagos) {
+        registro = await manager.findOne(Registro, { where: { id: historial.registroOriginalId } });
+        if (!registro) {
+          throw new NotFoundException(
+            `No se encontró el registro original #${historial.registroOriginalId} — no se puede ajustar el total`,
+          );
+        }
+      }
+
+      if (dto.nombreCliente !== undefined) historial.nombreCliente = dto.nombreCliente;
+      if (dto.fechaEvento !== undefined) historial.fechaEvento = new Date(dto.fechaEvento);
+      if (dto.totalCobrado !== undefined) historial.totalCobrado = dto.totalCobrado;
+
+      if (dto.pagos && dto.pagos.length > 0) {
+        // Se reemplaza TODO el desglose. `concepto` es solo informativo
+        // (resumenDeIngresos() de abajo nunca lo lee, solo metodoPago),
+        // así que basta con conservar el de la primera línea existente.
+        const existentes = await manager.find(Ingreso, { where: { historial: { id } } });
+        const concepto = existentes[0]?.concepto ?? ConceptoIngreso.HOSPEDAJE;
+        if (existentes.length > 0) await manager.remove(existentes);
+
+        for (const pago of dto.pagos) {
+          await manager.save(
+            manager.create(Ingreso, {
+              historial: { id } as Ingreso['historial'],
+              registro: { id: historial.registroOriginalId } as Ingreso['registro'],
+              concepto,
+              metodoPago: pago.metodoPago,
+              cantidad: pago.cantidad,
+              nota: pago.nota,
+              fecha: historial.fechaEvento,
+            }),
+          );
+        }
+        historial.metodoPago = dto.pagos[0].metodoPago;
+      } else if (dto.fechaEvento !== undefined) {
+        // No se tocó `pagos`, pero sí la fecha: hay que mover también
+        // Ingreso.fecha, que es de donde salen los totales de los
+        // reportes (no de Historial.fechaEvento) — si no, la fila se
+        // vería bajo el día nuevo pero el dinero seguiría contando en
+        // el resumen del día viejo.
+        await manager.update(Ingreso, { historial: { id } }, { fecha: historial.fechaEvento });
+      }
+
+      await manager.save(historial);
+
+      if (registro && dto.totalCobrado !== undefined) {
+        const delta = nuevoTotal - totalAnterior;
+        if (delta !== 0) {
+          registro.totalACobrar = Number(registro.totalACobrar) + delta;
+          await manager.save(registro);
+        }
+      }
+
+      return historial;
+    });
   }
 
   // Agrupa Ingreso por el Historial al que pertenece, para poder

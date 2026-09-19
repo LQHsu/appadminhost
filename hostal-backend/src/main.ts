@@ -15,6 +15,15 @@ async function bootstrap() {
     );
   }
 
+  // Misma advertencia para la clave de edición de historial: sin ella,
+  // cualquiera con acceso normal a la app puede corregir montos ya
+  // registrados sin ninguna segunda confirmación.
+  if (process.env.DATABASE_URL && !process.env.EDIT_PASSWORD) {
+    console.warn(
+      '⚠️  ADVERTENCIA: corriendo contra Postgres sin EDIT_PASSWORD configurada — editar historial no pide contraseña.',
+    );
+  }
+
   app.useGlobalGuards(new ApiKeyGuard());
 
   // Valida automáticamente todos los DTOs (equivalente global a tus

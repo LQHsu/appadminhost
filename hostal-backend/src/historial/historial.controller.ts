@@ -1,5 +1,7 @@
-import { Controller, Get, Query, ParseIntPipe, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Patch, Body, Param, Query, ParseIntPipe, UseGuards, BadRequestException } from '@nestjs/common';
 import { HistorialService } from './historial.service';
+import { UpdateHistorialDto } from './dto/update-historial.dto';
+import { EditPasswordGuard } from '../common/edit-password.guard';
 import { medianocheHostal, UN_DIA_MS } from '../common/zona-horaria';
 
 @Controller('historial')
@@ -9,6 +11,15 @@ export class HistorialController {
   @Get()
   findAll() {
     return this.historialService.findAll();
+  }
+
+  // Corrige una fila ya guardada (monto, pago, nombre, fecha) — pedida
+  // porque el personal a veces captura mal los datos. Protegido con una
+  // segunda clave (x-edit-password), separada de x-api-key.
+  @Patch(':id')
+  @UseGuards(EditPasswordGuard)
+  actualizar(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateHistorialDto) {
+    return this.historialService.actualizar(id, dto);
   }
 
   // Ej: GET /historial/reporte-mensual?anio=2026&mes=8

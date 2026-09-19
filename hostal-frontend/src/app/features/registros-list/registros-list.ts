@@ -7,20 +7,9 @@ import { Status, Registro } from '../../core/models/registro.model';
 import { ConfirmModal } from '../../shared/confirm-modal/confirm-modal/confirm-modal';
 import { LoadingOverlay } from '../../shared/loading-overlay/loading-overlay';
 import { LineasCobro, LineaCobro, resolverLineasCobro } from '../../shared/lineas-cobro/lineas-cobro';
+import { ahoraInput } from '../../shared/date-utils';
 
 type TipoAccion = 'checkout' | 'no-renovar' | 'renovar' | 'cobro-extra';
-
-// Formatea un Date al formato que espera <input type="datetime-local">
-// (YYYY-MM-DDTHH:mm, en hora LOCAL — a diferencia de toISOString() que
-// da UTC y desfasaría la hora mostrada).
-function aInputDatetimeLocal(fecha: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${fecha.getFullYear()}-${pad(fecha.getMonth() + 1)}-${pad(fecha.getDate())}T${pad(fecha.getHours())}:${pad(fecha.getMinutes())}`;
-}
-
-function ahoraInput(): string {
-  return aInputDatetimeLocal(new Date());
-}
 
 @Component({
   selector: 'app-registros-list',

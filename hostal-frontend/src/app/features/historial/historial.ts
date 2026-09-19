@@ -5,10 +5,23 @@ import { HistorialService } from '../../core/services/historial.service';
 import { Historial, TipoEvento } from '../../core/models/historial.model';
 import { ReporteAnual } from '../reporte-anual/reporte-anual';
 import { ReporteDiario } from '../reporte-diario/reporte-diario';
+import { ConfirmModal } from '../../shared/confirm-modal/confirm-modal/confirm-modal';
+import { LoadingOverlay } from '../../shared/loading-overlay/loading-overlay';
+import { LineasCobro, LineaCobro, resolverLineasCobro } from '../../shared/lineas-cobro/lineas-cobro';
+import { aInputDatetimeLocal } from '../../shared/date-utils';
 
 @Component({
   selector: 'app-historial',
-  imports: [CurrencyPipe, DatePipe, FormsModule, ReporteAnual, ReporteDiario],
+  imports: [
+    CurrencyPipe,
+    DatePipe,
+    FormsModule,
+    ReporteAnual,
+    ReporteDiario,
+    ConfirmModal,
+    LoadingOverlay,
+    LineasCobro,
+  ],
   templateUrl: './historial.html',
 })
 export class HistorialComponent implements OnInit {
@@ -17,6 +30,18 @@ export class HistorialComponent implements OnInit {
   hoy = new Date();
   anio = signal(this.hoy.getFullYear());
   mes = signal(this.hoy.getMonth() + 1); // getMonth() es 0-indexado
+
+  // --- Edición de una fila ya guardada (corrección de monto/pago/
+  // nombre/fecha, protegida con una clave aparte de la de acceso) ---
+
+  edicionPendiente = signal<Historial | null>(null);
+  nombreClienteEdit = signal('');
+  fechaEventoEdit = signal('');
+  totalCobradoEdit = signal(0);
+  pagosEdit = signal<LineaCobro[]>([]);
+  claveEdicion = signal('');
+  errorEdicion = signal('');
+  enviandoEdicion = signal(false);
 
   ngOnInit() {
     this.historialService.cargarHistorial();
@@ -64,5 +89,69 @@ export class HistorialComponent implements OnInit {
       case 'CHECKOUT':
         return 'bg-slate-100 text-slate-600';
     }
+  }
+
+  // Abre el modal de corrección precargado con los datos actuales de
+  // la fila. `claveEdicion` se limpia siempre, nunca se recuerda de
+  // una edición a otra.
+  pedirEdicion(h: Historial) {
+    this.nombreClienteEdit.set(h.nombreCliente);
+    this.fechaEventoEdit.set(aInputDatetimeLocal(new Date(h.fechaEvento)));
+    this.totalCobradoEdit.set(h.totalCobrado);
+    this.pagosEdit.set(
+      h.pagos && h.pagos.length > 0
+        ? h.pagos.map((p) => ({ metodoPago: p.metodoPago, cantidad: p.cantidad, nota: p.nota ?? undefined }))
+        : [{ metodoPago: h.metodoPago, cantidad: h.totalCobrado }],
+    );
+    this.claveEdicion.set('');
+    this.errorEdicion.set('');
+    this.edicionPendiente.set(h);
+  }
+
+  cancelarEdicion() {
+    this.edicionPendiente.set(null);
+    this.errorEdicion.set('');
+  }
+
+  confirmarEdicion() {
+    const h = this.edicionPendiente();
+    if (!h) return;
+
+    const total = this.totalCobradoEdit();
+    const pagos = resolverLineasCobro(this.pagosEdit(), total);
+    const suma = pagos.reduce((s, l) => s + (Number(l.cantidad) || 0), 0);
+    if (Math.abs(suma - total) > 0.01) {
+      this.errorEdicion.set('Los pagos no suman el total corregido — revisa los montos.');
+      return;
+    }
+    if (!this.claveEdicion()) {
+      this.errorEdicion.set('Escribe la clave de edición.');
+      return;
+    }
+
+    this.errorEdicion.set('');
+    this.enviandoEdicion.set(true);
+    this.historialService
+      .actualizarIngreso(
+        h.id,
+        {
+          nombreCliente: this.nombreClienteEdit(),
+          fechaEvento: new Date(this.fechaEventoEdit()).toISOString(),
+          totalCobrado: total,
+          pagos,
+        },
+        this.claveEdicion(),
+      )
+      .subscribe({
+        next: () => {
+          this.enviandoEdicion.set(false);
+          this.edicionPendiente.set(null);
+          this.historialService.cargarHistorial();
+        },
+        error: (err) => {
+          this.enviandoEdicion.set(false);
+          this.errorEdicion.set(err.error?.message ?? 'No se pudo guardar la corrección, intenta de nuevo');
+        },
+      });
   }
 }
