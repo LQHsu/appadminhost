@@ -126,6 +126,31 @@
           </tbody>
         </table>
       </div>
+
+      <div class="flex items-center justify-between gap-3 mt-3 text-sm text-slate-600">
+        <p>
+          Página {{ historialService.historialPage() }} de {{ historialService.historialTotalPaginas() }}
+          ({{ historialService.historialTotal() }} movimiento{{ historialService.historialTotal() === 1 ? '' : 's' }})
+        </p>
+        <div class="flex gap-2">
+          <button
+            type="button"
+            [disabled]="historialService.historialPage() <= 1"
+            (click)="historialService.cargarHistorial(historialService.historialPage() - 1)"
+            class="px-3 py-1 rounded border border-slate-300 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+          >
+            Anterior
+          </button>
+          <button
+            type="button"
+            [disabled]="historialService.historialPage() >= historialService.historialTotalPaginas()"
+            (click)="historialService.cargarHistorial(historialService.historialPage() + 1)"
+            class="px-3 py-1 rounded border border-slate-300 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+          >
+            Siguiente
+          </button>
+        </div>
+      </div>
     }
   </div>
 

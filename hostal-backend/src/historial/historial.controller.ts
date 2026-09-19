@@ -1,4 +1,16 @@
-import { Controller, Get, Patch, Delete, Body, Param, Query, ParseIntPipe, UseGuards, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  Query,
+  ParseIntPipe,
+  DefaultValuePipe,
+  UseGuards,
+  BadRequestException,
+} from '@nestjs/common';
 import { HistorialService } from './historial.service';
 import { UpdateHistorialDto } from './dto/update-historial.dto';
 import { EditPasswordGuard } from '../common/edit-password.guard';
@@ -8,9 +20,14 @@ import { medianocheHostal, UN_DIA_MS } from '../common/zona-horaria';
 export class HistorialController {
   constructor(private readonly historialService: HistorialService) {}
 
+  // Paginado, más reciente primero: page=1 (default) trae los primeros
+  // `limit` movimientos (default 20), page=2 los siguientes, etc.
   @Get()
-  findAll() {
-    return this.historialService.findAll();
+  findAll(
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+  ) {
+    return this.historialService.findAll(page, limit);
   }
 
   // Corrige una fila ya guardada (monto, pago, nombre, fecha) — pedida

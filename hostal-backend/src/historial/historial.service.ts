@@ -225,10 +225,18 @@ export class HistorialService {
     return { ...fila, pagos };
   }
 
-  async findAll() {
-    const filas = await this.historialRepo.find({ order: { fechaEvento: 'DESC' } });
+  // Paginado, más reciente primero. Se ordena también por `id` además
+  // de `fechaEvento` (que ya se puede editar y puede repetirse entre
+  // filas) para que el orden entre páginas sea estable.
+  async findAll(page = 1, limit = 20) {
+    const [filas, total] = await this.historialRepo.findAndCount({
+      order: { fechaEvento: 'DESC', id: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
     const mapa = await this.agruparPagosPorHistorial(filas.map((f) => f.id));
-    return filas.map((f) => this.conPagos(f, mapa));
+    const data = filas.map((f) => this.conPagos(f, mapa));
+    return { data, total, page, limit };
   }
 
   // "N° huéspedes" cuenta personas (check-ins), no movimientos: una

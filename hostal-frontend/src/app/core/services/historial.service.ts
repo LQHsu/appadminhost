@@ -1,19 +1,40 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { API_URL } from '../config/api.config';
 import { Historial, ReporteAnual, ReporteRango, ReporteMensual, UpdateHistorialDto } from '../models/historial.model';
+
+interface PaginaHistorial {
+  data: Historial[];
+  total: number;
+  page: number;
+  limit: number;
+}
 
 @Injectable({ providedIn: 'root' })
 export class HistorialService {
   private http = inject(HttpClient);
 
+  readonly historialLimit = 20;
+
   historial = signal<Historial[]>([]);
+  historialTotal = signal(0);
+  historialPage = signal(1);
+  historialTotalPaginas = computed(() => Math.max(1, Math.ceil(this.historialTotal() / this.historialLimit)));
+
   reporte = signal<ReporteMensual | null>(null);
   reporteAnual = signal<ReporteAnual | null>(null);
   reporteDiario = signal<ReporteRango | null>(null);
 
-  cargarHistorial() {
-    this.http.get<Historial[]>(`${API_URL}/historial`).subscribe((data) => this.historial.set(data));
+  // Sin argumento, recarga la página actual (ej. después de editar o
+  // eliminar una fila, para no perder el lugar en el que se estaba).
+  cargarHistorial(page = this.historialPage()) {
+    this.http
+      .get<PaginaHistorial>(`${API_URL}/historial`, { params: { page, limit: this.historialLimit } })
+      .subscribe((res) => {
+        this.historial.set(res.data);
+        this.historialTotal.set(res.total);
+        this.historialPage.set(res.page);
+      });
   }
 
   cargarReporteMensual(anio: number, mes: number) {
