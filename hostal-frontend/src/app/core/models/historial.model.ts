@@ -2,6 +2,17 @@ import { MetodoPago, Renovar } from './registro.model';
 
 export type TipoEvento = 'CHECK_IN' | 'RENOVACION' | 'COBRO_EXTRA' | 'CHECKOUT';
 
+// Una línea de Ingreso asociada a esta fila de Historial (una por cada
+// método de pago que se usó para cubrirla). Si viene vacío (datos
+// viejos, de antes de que existiera Ingreso), el frontend cae de
+// regreso a `metodoPago`.
+export interface PagoHistorial {
+  metodoPago: MetodoPago;
+  concepto: 'HOSPEDAJE' | 'MULTA' | 'COBRO_EXTRA';
+  cantidad: number;
+  nota: string | null;
+}
+
 export interface Historial {
   id: number;
   registroOriginalId: number;
@@ -32,6 +43,10 @@ export interface Historial {
   metodoPago: MetodoPago;
   renovarFinal: Renovar;
   atendio: string;
+  // Desglose real de cómo se pagó esta fila (puede tener varias líneas
+  // con distinto método). `metodoPago` de arriba solo guarda el de la
+  // primera línea.
+  pagos: PagoHistorial[];
 }
 
 export interface ReporteMensual {

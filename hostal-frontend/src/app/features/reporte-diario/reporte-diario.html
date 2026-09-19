@@ -87,7 +87,11 @@
                 <td class="py-2 pr-3 text-right">{{ f.totalCobrado | currency: 'MXN' }}</td>
                 <td class="py-2 pr-3">P{{ f.piso }} - {{ f.habitacionNumero }}</td>
                 <td class="py-2 pr-3 text-right">{{ f.camas }}</td>
-                <td class="py-2 pr-3">{{ f.metodoPago }}</td>
+                <td class="py-2 pr-3">
+                  @for (linea of desglosePagos(f); track linea) {
+                    <span class="block">{{ linea }}</span>
+                  }
+                </td>
               </tr>
             }
           </tbody>

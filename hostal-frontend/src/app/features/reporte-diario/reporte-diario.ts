@@ -79,6 +79,18 @@ export class ReporteDiario implements OnInit {
     return Number(f.totalCobrado) || 0;
   }
 
+  // Mismo desglose que en la vista de "Historial de ingresos": cuando
+  // una fila se pagó con varios métodos (ej. mitad efectivo mitad
+  // tarjeta), los muestra todos en vez de solo el primero. `pagos`
+  // viene vacío en datos viejos, de antes de que existiera Ingreso —
+  // ahí cae de regreso a `metodoPago`.
+  desglosePagos(f: Historial): string[] {
+    if (f.pagos && f.pagos.length > 0) {
+      return f.pagos.map((p) => `${p.metodoPago}: $${p.cantidad}`);
+    }
+    return [f.metodoPago];
+  }
+
   claseTipo(tipo: TipoEvento): string {
     switch (tipo) {
       case 'CHECK_IN':

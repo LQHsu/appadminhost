@@ -1,14 +1,14 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { CurrencyPipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HistorialService } from '../../core/services/historial.service';
-import { TipoEvento } from '../../core/models/historial.model';
+import { Historial, TipoEvento } from '../../core/models/historial.model';
 import { ReporteAnual } from '../reporte-anual/reporte-anual';
 import { ReporteDiario } from '../reporte-diario/reporte-diario';
 
 @Component({
   selector: 'app-historial',
-  imports: [DatePipe, DecimalPipe, FormsModule, ReporteAnual, ReporteDiario],
+  imports: [CurrencyPipe, DatePipe, FormsModule, ReporteAnual, ReporteDiario],
   templateUrl: './historial.html',
 })
 export class HistorialComponent implements OnInit {
@@ -40,6 +40,19 @@ export class HistorialComponent implements OnInit {
     }
   }
 
+  // Desglosa los pagos de una fila en líneas "MÉTODO: $monto" — cuando
+  // hubo un solo método (el caso normal) queda igual que antes, pero
+  // si se pagó con varios (ej. mitad efectivo mitad tarjeta) los
+  // muestra todos en vez de solo el primero. `pagos` viene vacío en
+  // datos viejos (de antes de que existiera Ingreso); ahí cae de
+  // regreso a `metodoPago`.
+  desglosePagos(h: Historial): string[] {
+    if (h.pagos && h.pagos.length > 0) {
+      return h.pagos.map((p) => `${p.metodoPago}: $${p.cantidad}`);
+    }
+    return [h.metodoPago];
+  }
+
   claseTipo(tipo: TipoEvento): string {
     switch (tipo) {
       case 'CHECK_IN':
@@ -51,18 +64,5 @@ export class HistorialComponent implements OnInit {
       case 'CHECKOUT':
         return 'bg-slate-100 text-slate-600';
     }
-  }
-
-  // Solo para las tarjetas del reporte mensual (números "redondos" para
-  // presentar). El total exacto sigue viviendo intacto en todos lados
-  // donde importa cuadrar caja (corte de caja del reporte diario,
-  // "Historial de ingresos", etc.) — esto NO toca esos datos.
-  redondearArriba3CifrasSig(n: number): number {
-    if (n === 0) return 0;
-    const signo = n < 0 ? -1 : 1;
-    const abs = Math.abs(n);
-    const magnitud = Math.floor(Math.log10(abs)) + 1;
-    const factor = Math.pow(10, Math.max(0, magnitud - 3));
-    return signo * Math.ceil(abs / factor) * factor;
   }
 }

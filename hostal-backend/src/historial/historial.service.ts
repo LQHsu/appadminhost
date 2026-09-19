@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, Repository } from 'typeorm';
+import { Between, In, Repository } from 'typeorm';
 import { Historial, TipoEvento } from './entities/historial.entity';
 import { Ingreso } from './entities/ingreso.entity';
 import { medianocheHostal, fechaYMDHostal } from '../common/zona-horaria';
@@ -19,8 +19,47 @@ export class HistorialService {
     return this.historialRepo.save(historial);
   }
 
-  findAll() {
-    return this.historialRepo.find({ order: { fechaEvento: 'DESC' } });
+  // Agrupa Ingreso por el Historial al que pertenece, para poder
+  // mostrar el desglose real de métodos de pago de cada fila (ej. un
+  // check-in pagado mitad efectivo mitad tarjeta) en vez de solo
+  // `Historial.metodoPago`, que únicamente guarda el de la PRIMERA
+  // línea de pago.
+  private async agruparPagosPorHistorial(historialIds: number[]): Promise<Map<number, Ingreso[]>> {
+    const mapa = new Map<number, Ingreso[]>();
+    if (historialIds.length === 0) return mapa;
+
+    const ingresos = await this.ingresoRepo.find({
+      where: { historial: { id: In(historialIds) } },
+      relations: { historial: true },
+      order: { id: 'ASC' },
+    });
+    for (const ingreso of ingresos) {
+      const lista = mapa.get(ingreso.historial.id) ?? [];
+      lista.push(ingreso);
+      mapa.set(ingreso.historial.id, lista);
+    }
+    return mapa;
+  }
+
+  // Agrega `pagos` (desglose por método/concepto) a cada fila, sin
+  // tocar las columnas propias de Historial. Si una fila no tiene
+  // ninguna línea de Ingreso asociada (datos viejos, de antes de que
+  // existiera esta tabla), `pagos` queda vacío y el frontend cae de
+  // regreso a `metodoPago`.
+  private conPagos(fila: Historial, mapa: Map<number, Ingreso[]>) {
+    const pagos = (mapa.get(fila.id) ?? []).map((i) => ({
+      metodoPago: i.metodoPago,
+      concepto: i.concepto,
+      cantidad: Number(i.cantidad),
+      nota: i.nota,
+    }));
+    return { ...fila, pagos };
+  }
+
+  async findAll() {
+    const filas = await this.historialRepo.find({ order: { fechaEvento: 'DESC' } });
+    const mapa = await this.agruparPagosPorHistorial(filas.map((f) => f.id));
+    return filas.map((f) => this.conPagos(f, mapa));
   }
 
   // "N° huéspedes" cuenta personas (check-ins), no movimientos: una
@@ -129,6 +168,13 @@ export class HistorialService {
       this.ingresoRepo.find({ where: { fecha: Between(desde, hasta) } }),
     ]);
 
-    return { desde, hasta, resumen: this.resumenDeIngresos(ingresos, filas), filas };
+    // Mismo desglose de pagos que findAll(), para que la tabla del
+    // corte de caja también muestre cada método de pago usado (no solo
+    // el de la primera línea) en check-ins/renovaciones/checkouts que
+    // se pagaron con varios métodos a la vez.
+    const mapa = await this.agruparPagosPorHistorial(filas.map((f) => f.id));
+    const filasConPagos = filas.map((f) => this.conPagos(f, mapa));
+
+    return { desde, hasta, resumen: this.resumenDeIngresos(ingresos, filas), filas: filasConPagos };
   }
 }

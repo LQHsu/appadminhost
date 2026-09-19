@@ -24,19 +24,19 @@
         <div class="border rounded-lg p-3">
           <p class="text-xs text-slate-500">Ingresos totales</p>
           <p class="text-xl font-semibold text-slate-800">
-            ${{ redondearArriba3CifrasSig(r.totalIngresos) | number }}
+            {{ r.totalIngresos | currency: 'MXN' }}
           </p>
         </div>
         <div class="border rounded-lg p-3">
           <p class="text-xs text-slate-500">Efectivo</p>
           <p class="text-xl font-semibold text-slate-800">
-            ${{ redondearArriba3CifrasSig(r.efectivo) | number }}
+            {{ r.efectivo | currency: 'MXN' }}
           </p>
         </div>
         <div class="border rounded-lg p-3">
           <p class="text-xs text-slate-500">Tarjeta</p>
           <p class="text-xl font-semibold text-slate-800">
-            ${{ redondearArriba3CifrasSig(r.tarjeta) | number }}
+            {{ r.tarjeta | currency: 'MXN' }}
           </p>
         </div>
         <div class="border rounded-lg p-3">
@@ -88,7 +88,11 @@
                     <span class="block text-xs text-amber-600">incluye ${{ h.multa }} de multa</span>
                   }
                 </td>
-                <td class="py-2 pr-3">{{ h.metodoPago }}</td>
+                <td class="py-2 pr-3">
+                  @for (linea of desglosePagos(h); track linea) {
+                    <span class="block">{{ linea }}</span>
+                  }
+                </td>
               </tr>
             }
           </tbody>
