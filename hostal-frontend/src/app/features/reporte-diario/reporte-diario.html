@@ -23,6 +23,12 @@
     </div>
   </div>
 
+  <p class="text-xs text-amber-600 mb-4 no-imprimir">
+    La tabla ahora tiene muchas columnas — en el diálogo de impresión, revisa que la orientación diga
+    <strong>"Horizontal"</strong> (a veces el navegador no la cambia solo). Si la deja en "Vertical", el PDF
+    sale angosto y con espacio en blanco abajo.
+  </p>
+
   @if (historialService.reporteDiario(); as r) {
     <!-- Encabezado: solo aparece al imprimir, ya que en pantalla el
          título "Reporte diario" de arriba (no-imprimir) cumple ese rol. -->

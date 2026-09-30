@@ -27,6 +27,9 @@
    vertical no entraría en el ancho de una hoja. */
 @page {
   size: landscape;
+  /* Los márgenes por default del navegador (~1in) le quitan ancho útil
+     a una tabla con tantas columnas. */
+  margin: 10mm;
 }
 
 @media print {
