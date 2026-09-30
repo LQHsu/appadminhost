@@ -233,7 +233,21 @@ export class ReporteDiario implements OnInit {
   // tarjeta), los muestra todos en vez de solo el primero. `pagos`
   // viene vacío en datos viejos, de antes de que existiera Ingreso —
   // ahí cae de regreso a `metodoPago`.
+  // Solo el método (EFECTIVO/TARJETA), sin el monto de cada línea — el
+  // total ya se ve en la columna "Total", repetirlo aquí era
+  // redundante. Si se pagó con varios métodos, se listan todos, cada
+  // uno sin su monto.
   desglosePagos(f: Historial): string[] {
+    if (f.pagos && f.pagos.length > 0) {
+      return [...new Set(f.pagos.map((p) => p.metodoPago))];
+    }
+    return [f.metodoPago];
+  }
+
+  // Para el Excel sí interesa el monto por método (permite sumar por
+  // columna en la hoja de cálculo) — a diferencia de la tabla
+  // impresa/pantalla, aquí no es redundante con nada.
+  private desglosePagosConMonto(f: Historial): string[] {
     if (f.pagos && f.pagos.length > 0) {
       return f.pagos.map((p) => `${p.metodoPago}: $${p.cantidad}`);
     }
@@ -301,7 +315,7 @@ export class ReporteDiario implements OnInit {
       'Otro cobro': Number(f.otroCobro),
       Noches: f.noches,
       'Documento de identidad': f.documentoIdentidad,
-      'Método de pago': this.desglosePagos(f).join(' | '),
+      'Método de pago': this.desglosePagosConMonto(f).join(' | '),
       Atendió: f.atendio,
       'Canal de venta': f.canalVentaNombre ?? '',
       Comentario: this.comentarioExtra(f).join(' | '),
