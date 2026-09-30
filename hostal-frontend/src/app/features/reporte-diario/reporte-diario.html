@@ -75,8 +75,6 @@
               <th class="py-2 pr-3">Habitación</th>
               <th class="py-2 pr-3">Camas</th>
               <th class="py-2 pr-3">Fecha</th>
-              <th class="py-2 pr-3">Check-in</th>
-              <th class="py-2 pr-3">Check-out</th>
               <th class="py-2 pr-3">Total</th>
               <th class="py-2 pr-3">Costo por cama</th>
               <th class="py-2 pr-3">Otro cobro</th>
@@ -100,13 +98,17 @@
                     {{ etiquetaTipo(f.tipo) }}
                   </span>
                   <span class="solo-imprimir">{{ etiquetaTipo(f.tipo) }}</span>
+                  <span class="block text-xs text-slate-500">
+                    Check-in: {{ f.checkIn | date: 'short' }}
+                    @if (f.checkOut) {
+                      · Check-out: {{ f.checkOut | date: 'short' }}
+                    }
+                  </span>
                 </td>
                 <td class="py-2 pr-3">{{ f.nombreCliente }}</td>
                 <td class="py-2 pr-3">P{{ f.piso }} - {{ f.habitacionNumero }}</td>
                 <td class="py-2 pr-3">{{ f.camas }}</td>
                 <td class="py-2 pr-3">{{ f.fechaEvento | date: 'short' }}</td>
-                <td class="py-2 pr-3">{{ f.checkIn | date: 'short' }}</td>
-                <td class="py-2 pr-3">{{ f.checkOut ? (f.checkOut | date: 'short') : '—' }}</td>
                 <td class="py-2 pr-3">
                   {{ f.totalCobrado | currency: 'MXN' }}
                   @if (f.multa > 0) {
@@ -136,7 +138,7 @@
           </tbody>
           <tfoot>
             <tr class="border-t-2 border-slate-300 font-semibold text-slate-800">
-              <td class="py-2 pr-3" colspan="8">Total del periodo</td>
+              <td class="py-2 pr-3" colspan="6">Total del periodo</td>
               <td class="py-2 pr-3">{{ r.resumen.totalIngresos | currency: 'MXN' }}</td>
               <td colspan="8"></td>
             </tr>
