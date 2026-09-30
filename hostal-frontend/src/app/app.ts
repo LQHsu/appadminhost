@@ -4,6 +4,7 @@ import { RegistrosList } from './features/registros-list/registros-list';
 import { Disponibilidad } from './features/disponibilidad/disponibilidad';
 import { HistorialComponent } from './features/historial/historial';
 import { HabitacionesAdmin } from './features/habitaciones-admin/habitaciones-admin';
+import { CanalVentaAdmin } from './features/canal-venta-admin/canal-venta-admin';
 import { AccessGate } from './shared/access-gate/access-gate';
 import { AuthService } from './core/services/auth.service';
 import { REQUIERE_CLAVE } from './core/config/api.config';
@@ -18,6 +19,7 @@ type Tab = 'registro' | 'activos' | 'disponibilidad' | 'habitaciones' | 'histori
     Disponibilidad,
     HistorialComponent,
     HabitacionesAdmin,
+    CanalVentaAdmin,
     AccessGate,
   ],
   templateUrl: './app.html',

@@ -5,6 +5,7 @@ import { AppService } from './app.service';
 import { HabitacionesModule } from './habitaciones/habitaciones.module';
 import { RegistrosModule } from './registros/registros.module';
 import { HistorialModule } from './historial/historial.module';
+import { CanalesVentaModule } from './canales-venta/canales-venta.module';
 import { ENTIDADES } from './database.entities';
 
 // Dos modos, elegidos según exista o no DATABASE_URL:
@@ -38,6 +39,7 @@ import { ENTIDADES } from './database.entities';
     HabitacionesModule,
     RegistrosModule,
     HistorialModule,
+    CanalesVentaModule,
   ],
   controllers: [AppController],
   providers: [AppService],

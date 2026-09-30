@@ -78,4 +78,10 @@ export class CreateRegistroDto {
   @IsNumber()
   @Min(0)
   otroCobro?: number;
+
+  // Opcional: el catálogo de canales de venta puede estar vacío o el
+  // personal puede no saber por cuál canal entró la reserva.
+  @IsOptional()
+  @IsInt()
+  canalVentaId?: number;
 }

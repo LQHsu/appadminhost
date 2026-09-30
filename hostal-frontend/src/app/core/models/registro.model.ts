@@ -62,4 +62,7 @@ export interface CreateRegistroDto {
   renovar?: Renovar;
   atendio: string;
   otroCobro?: number;
+  // Opcional: el catálogo puede estar vacío o no sabérselo al momento
+  // de registrar.
+  canalVentaId?: number;
 }

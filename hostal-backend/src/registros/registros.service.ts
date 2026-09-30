@@ -9,6 +9,7 @@ import { HabitacionesService } from '../habitaciones/habitaciones.service';
 import { HistorialService } from '../historial/historial.service';
 import { Historial, TipoEvento } from '../historial/entities/historial.entity';
 import { Ingreso, ConceptoIngreso } from '../historial/entities/ingreso.entity';
+import { CanalVenta } from '../canales-venta/entities/canal-venta.entity';
 import { medioDiaHostal, fechaYMDHostal } from '../common/zona-horaria';
 
 export type Status = 'VIGENTE' | 'PENDIENTE' | 'RENOVADO' | 'NO';
@@ -20,6 +21,8 @@ export class RegistrosService {
     private registrosRepo: Repository<Registro>,
     @InjectRepository(Habitacion)
     private habitacionesRepo: Repository<Habitacion>,
+    @InjectRepository(CanalVenta)
+    private canalesVentaRepo: Repository<CanalVenta>,
     private habitacionesService: HabitacionesService,
     private historialService: HistorialService,
     private dataSource: DataSource,
@@ -129,6 +132,10 @@ export class RegistrosService {
     const totalACobrar = dto.camasSolicitadas * dto.costoPorCama * noches + otroCobro;
     const pagos = this.resolverPagos(dto.pagos, dto.metodoPago, totalACobrar);
 
+    // Opcional — el catálogo puede estar vacío o no sabérselo al
+    // momento de registrar.
+    const canalVenta = dto.canalVentaId ? await this.canalesVentaRepo.findOneBy({ id: dto.canalVentaId }) : null;
+
     // El check-in y su línea de historial se guardan juntos: o se crea
     // el registro Y se refleja el cobro en el reporte diario, o no pasa
     // ninguna de las dos cosas.
@@ -150,6 +157,7 @@ export class RegistrosService {
         metodoPago: pagos[0].metodoPago,
         renovar: dto.renovar ?? Renovar.PENDIENTE,
         atendio: dto.atendio,
+        canalVenta,
       });
 
       const guardado = await manager.save(registro);
@@ -180,6 +188,7 @@ export class RegistrosService {
         metodoPago: guardado.metodoPago,
         renovarFinal: guardado.renovar,
         atendio: guardado.atendio,
+        canalVentaNombre: canalVenta?.nombre,
       });
       const historialGuardado = await manager.save(historial);
 
@@ -229,7 +238,7 @@ export class RegistrosService {
     return this.dataSource.transaction(async (manager) => {
       const registro = await manager.findOne(Registro, {
         where: { id },
-        relations: { habitacion: true },
+        relations: { habitacion: true, canalVenta: true },
       });
       if (!registro) throw new NotFoundException(`Registro ${id} no encontrado`);
       registro.renovar = renovar;
@@ -279,6 +288,7 @@ export class RegistrosService {
           metodoPago: lineasPago[0].metodoPago,
           renovarFinal: registro.renovar,
           atendio: registro.atendio,
+          canalVentaNombre: registro.canalVenta?.nombre,
         });
         const historialGuardado = await manager.save(historial);
 
@@ -331,7 +341,7 @@ export class RegistrosService {
     return this.dataSource.transaction(async (manager) => {
       const registro = await manager.findOne(Registro, {
         where: { id },
-        relations: { habitacion: true },
+        relations: { habitacion: true, canalVenta: true },
       });
       if (!registro) throw new NotFoundException(`Registro ${id} no encontrado`);
 
@@ -362,6 +372,7 @@ export class RegistrosService {
         metodoPago: listaCobrosExtra[0]?.metodoPago ?? multaTardioMetodoPago ?? registro.metodoPago,
         renovarFinal: registro.renovar,
         atendio: registro.atendio,
+        canalVentaNombre: registro.canalVenta?.nombre,
       });
       const historialGuardado = await manager.save(historial);
 
@@ -410,7 +421,7 @@ export class RegistrosService {
     return this.dataSource.transaction(async (manager) => {
       const registro = await manager.findOne(Registro, {
         where: { id },
-        relations: { habitacion: true },
+        relations: { habitacion: true, canalVenta: true },
       });
       if (!registro) throw new NotFoundException(`Registro ${id} no encontrado`);
       if (registro.cerrado) {
@@ -439,6 +450,7 @@ export class RegistrosService {
         metodoPago: cobros[0].metodoPago,
         renovarFinal: registro.renovar,
         atendio: registro.atendio,
+        canalVentaNombre: registro.canalVenta?.nombre,
       });
       const historialGuardado = await manager.save(historial);
 

@@ -86,6 +86,21 @@ export class HistorialComponent implements OnInit {
     return [h.metodoPago];
   }
 
+  // Columna "Comentario": arma texto legible a partir de las líneas de
+  // Ingreso que NO son el cobro normal de hospedaje (cobros extra,
+  // multa), reusando su nota si tiene una. No es un campo nuevo — solo
+  // presenta lo que ya se capturó en cada cobro extra/multa.
+  comentarioExtra(h: Historial): string[] {
+    if (!h.pagos) return [];
+    return h.pagos
+      .filter((p) => p.concepto !== 'HOSPEDAJE')
+      .map((p) => {
+        const etiqueta = p.concepto === 'MULTA' ? 'Multa' : 'Cobro extra';
+        const nota = p.nota ? `: ${p.nota}` : '';
+        return `${etiqueta}${nota} ($${p.cantidad})`;
+      });
+  }
+
   claseTipo(tipo: TipoEvento): string {
     switch (tipo) {
       case 'CHECK_IN':

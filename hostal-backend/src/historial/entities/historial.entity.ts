@@ -100,4 +100,12 @@ export class Historial {
 
   @Column()
   atendio: string;
+
+  // Copiado de Registro.canalVenta.nombre al momento de cada evento —
+  // mismo patrón que nombreCliente/documentoIdentidad: una foto del
+  // dato en ese momento, no una relación viva. Así, si el canal se
+  // renombra o desactiva después, el historial no cambia con él.
+  // Nulo en registros de antes de que existiera este catálogo.
+  @Column({ nullable: true })
+  canalVentaNombre: string;
 }

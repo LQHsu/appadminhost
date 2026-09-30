@@ -1,0 +1,39 @@
+<div class="bg-white rounded-lg shadow p-6">
+  <h2 class="text-lg font-semibold text-slate-800 mb-4">Canales de venta</h2>
+
+  <form [formGroup]="form" (ngSubmit)="crear()" class="flex flex-wrap items-end gap-3 mb-4">
+    <div>
+      <label class="block text-sm font-medium text-slate-600 mb-1">Nombre</label>
+      <input formControlName="nombre" type="text" placeholder="ej. Booking"
+             class="w-48 rounded border-slate-300" />
+    </div>
+    <button type="submit" class="px-4 py-2 rounded bg-sky-600 text-white text-sm font-medium hover:bg-sky-700">
+      Agregar canal
+    </button>
+  </form>
+
+  @if (error()) {
+    <p class="text-red-600 text-xs bg-red-50 border border-red-100 rounded p-2 mb-4">{{ error() }}</p>
+  }
+
+  <div class="flex flex-wrap gap-2">
+    @for (c of canalVentaService.canales(); track c.id) {
+      <button
+        type="button"
+        (click)="alternarActivo(c)"
+        [title]="c.activo ? 'Clic para desactivar' : 'Clic para reactivar'"
+        class="px-3 py-1.5 rounded-full text-xs font-medium border"
+        [class.bg-emerald-50]="c.activo"
+        [class.border-emerald-300]="c.activo"
+        [class.text-emerald-700]="c.activo"
+        [class.bg-slate-100]="!c.activo"
+        [class.border-slate-300]="!c.activo"
+        [class.text-slate-400]="!c.activo"
+      >
+        {{ c.nombre }}{{ c.activo ? '' : ' (inactivo)' }}
+      </button>
+    } @empty {
+      <p class="text-slate-500 text-sm">Aún no hay canales de venta. Agrega el primero arriba.</p>
+    }
+  </div>
+</div>

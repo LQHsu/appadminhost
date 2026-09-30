@@ -3,6 +3,7 @@ import { ReactiveFormsModule, FormBuilder, Validators, AbstractControl, Validati
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { RegistrosService } from '../../core/services/registros.service';
 import { HabitacionesService } from '../../core/services/habitaciones.service';
+import { CanalVentaService } from '../../core/services/canal-venta.service';
 import { ConfirmModal } from '../../shared/confirm-modal/confirm-modal/confirm-modal';
 import { LoadingOverlay } from '../../shared/loading-overlay/loading-overlay';
 import { LineasCobro, LineaCobro, resolverLineasCobro } from '../../shared/lineas-cobro/lineas-cobro';
@@ -42,6 +43,7 @@ export class RegistroForm implements OnInit {
   private fb = inject(FormBuilder);
   private registrosService = inject(RegistrosService);
   habitacionesService = inject(HabitacionesService);
+  canalVentaService = inject(CanalVentaService);
 
   enviando = false;
   mensajeError = '';
@@ -65,6 +67,9 @@ export class RegistroForm implements OnInit {
       documentoIdentidad: ['', Validators.required],
       atendio: ['', Validators.required],
       otroCobro: [0, [Validators.min(0)]],
+      // 0 = "sin canal elegido" (el catálogo es opcional) — mismo
+      // criterio de sentinel que habitacionId usa mientras no se elige.
+      canalVentaId: [0],
     },
     { validators: [this.camasDisponiblesValidator(this.habitacionesService), this.fechasValidator] },
   );
@@ -76,6 +81,7 @@ export class RegistroForm implements OnInit {
   ngOnInit() {
     this.habitacionesService.cargarHabitaciones();
     this.habitacionesService.cargarDisponibilidad();
+    this.canalVentaService.cargarCanales();
   }
 
   mostrarConfirmacion = signal(false);
@@ -107,7 +113,7 @@ export class RegistroForm implements OnInit {
     this.enviando = true;
     this.mensajeError = '';
 
-    const { checkIn, checkOutFecha, ...resto } = this.form.getRawValue();
+    const { checkIn, checkOutFecha, canalVentaId, ...resto } = this.form.getRawValue();
     const pagos = resolverLineasCobro(this.lineasPago(), this.totalPreview());
 
     this.registrosService
@@ -116,6 +122,7 @@ export class RegistroForm implements OnInit {
         checkIn: new Date(checkIn).toISOString(),
         checkOutFecha,
         pagos,
+        canalVentaId: canalVentaId > 0 ? canalVentaId : undefined,
       })
       .subscribe({
         next: () => {
@@ -143,6 +150,7 @@ export class RegistroForm implements OnInit {
       documentoIdentidad: '',
       atendio: '',
       otroCobro: 0,
+      canalVentaId: 0,
     });
     this.lineasPago.set([{ metodoPago: 'EFECTIVO', cantidad: 0 }]);
   }

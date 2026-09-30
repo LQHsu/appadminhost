@@ -57,41 +57,63 @@
         <table class="w-full text-sm text-left">
           <thead class="text-slate-500 border-b">
             <tr>
+              <th class="py-2 pr-3">N°</th>
+              <th class="py-2 pr-3">Evento</th>
               <th class="py-2 pr-3">Cliente</th>
               <th class="py-2 pr-3">Habitación</th>
               <th class="py-2 pr-3">Camas</th>
-              <th class="py-2 pr-3">Evento</th>
               <th class="py-2 pr-3">Fecha</th>
-              <th class="py-2 pr-3">Periodo cubierto</th>
-              <th class="py-2 pr-3">Monto</th>
-              <th class="py-2 pr-3">Método</th>
+              <th class="py-2 pr-3">Check-in</th>
+              <th class="py-2 pr-3">Check-out</th>
+              <th class="py-2 pr-3">Total</th>
+              <th class="py-2 pr-3">Costo por cama</th>
+              <th class="py-2 pr-3">Otro cobro</th>
+              <th class="py-2 pr-3">Noches</th>
+              <th class="py-2 pr-3">Documento de identidad</th>
+              <th class="py-2 pr-3">Método de pago</th>
+              <th class="py-2 pr-3">Atendió</th>
+              <th class="py-2 pr-3">Canal de venta</th>
+              <th class="py-2 pr-3">Comentario</th>
               <th class="py-2 pr-3">Acciones</th>
             </tr>
           </thead>
           <tbody>
             @for (h of historialService.historial(); track h.id) {
               <tr class="border-b last:border-0">
-                <td class="py-2 pr-3">{{ h.nombreCliente }}</td>
-                <td class="py-2 pr-3">P{{ h.piso }} - {{ h.habitacionNumero }}</td>
-                <td class="py-2 pr-3">{{ h.camas }}</td>
+                <td class="py-2 pr-3">{{ h.id }}</td>
                 <td class="py-2 pr-3">
                   <span class="px-2 py-1 rounded text-xs font-medium" [class]="claseTipo(h.tipo)">
                     {{ etiquetaTipo(h.tipo) }}
                   </span>
                 </td>
+                <td class="py-2 pr-3">{{ h.nombreCliente }}</td>
+                <td class="py-2 pr-3">P{{ h.piso }} - {{ h.habitacionNumero }}</td>
+                <td class="py-2 pr-3">{{ h.camas }}</td>
                 <td class="py-2 pr-3">{{ h.fechaEvento | date: 'short' }}</td>
-                <td class="py-2 pr-3">
-                  {{ h.periodoDesde | date: 'short' }} → {{ h.periodoHasta | date: 'short' }}
-                </td>
+                <td class="py-2 pr-3">{{ h.checkIn | date: 'short' }}</td>
+                <td class="py-2 pr-3">{{ h.checkOut ? (h.checkOut | date: 'short') : '—' }}</td>
                 <td class="py-2 pr-3">
                   ${{ h.totalCobrado }}
                   @if (h.multa > 0) {
                     <span class="block text-xs text-amber-600">incluye ${{ h.multa }} de multa</span>
                   }
                 </td>
+                <td class="py-2 pr-3">${{ h.costoPorCama }}</td>
+                <td class="py-2 pr-3">${{ h.otroCobro }}</td>
+                <td class="py-2 pr-3">{{ h.noches }}</td>
+                <td class="py-2 pr-3">{{ h.documentoIdentidad }}</td>
                 <td class="py-2 pr-3">
                   @for (linea of desglosePagos(h); track linea) {
                     <span class="block">{{ linea }}</span>
+                  }
+                </td>
+                <td class="py-2 pr-3">{{ h.atendio }}</td>
+                <td class="py-2 pr-3">{{ h.canalVentaNombre ?? '—' }}</td>
+                <td class="py-2 pr-3">
+                  @for (linea of comentarioExtra(h); track linea) {
+                    <span class="block">{{ linea }}</span>
+                  } @empty {
+                    —
                   }
                 </td>
                 <td class="py-2 pr-3">

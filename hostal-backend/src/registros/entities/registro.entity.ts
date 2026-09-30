@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
 import { Habitacion } from '../../habitaciones/entities/habitacion.entity';
+import { CanalVenta } from '../../canales-venta/entities/canal-venta.entity';
 
 export enum MetodoPago {
   EFECTIVO = 'EFECTIVO',
@@ -77,6 +78,12 @@ export class Registro {
 
   @ManyToOne(() => Habitacion, (habitacion) => habitacion.registros)
   habitacion: Habitacion;
+
+  // Opcional a propósito: el catálogo empieza vacío y el personal debe
+  // poder seguir haciendo check-in aunque todavía no hayan cargado
+  // ningún canal.
+  @ManyToOne(() => CanalVenta, { nullable: true })
+  canalVenta: CanalVenta | null;
 
   @Column()
   documentoIdentidad: string;

@@ -43,6 +43,10 @@ export interface Historial {
   metodoPago: MetodoPago;
   renovarFinal: Renovar;
   atendio: string;
+  // Copiado del canal de venta del Registro al momento de este evento
+  // (ver comentario en la entidad Historial) — null si no se eligió
+  // canal, o en datos de antes de que existiera este catálogo.
+  canalVentaNombre: string | null;
   // Desglose real de cómo se pagó esta fila (puede tener varias líneas
   // con distinto método). `metodoPago` de arriba solo guarda el de la
   // primera línea.
