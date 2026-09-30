@@ -1,6 +1,7 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import * as XLSX from 'xlsx';
 import { HistorialService } from '../../core/services/historial.service';
 import { CorteCajaService } from '../../core/services/corte-caja.service';
 import { AcuseRecepcionService } from '../../core/services/acuse-recepcion.service';
@@ -276,5 +277,46 @@ export class ReporteDiario implements OnInit {
     document.title = `Corte de caja ${this.desde()} a ${this.hasta()}`;
     window.print();
     document.title = tituloOriginal;
+  }
+
+  // "Exportar a Excel" = las mismas filas/columnas que ya se ven en
+  // pantalla, sin el filtrado cosmético que sí aplica el PDF (ej.
+  // checkouts en $0) — aquí es exportar el dato tal cual, no un
+  // documento para firmar. Todo client-side con SheetJS, sin backend.
+  exportarExcel() {
+    const r = this.historialService.reporteDiario();
+    if (!r) return;
+
+    const filas = r.filas.map((f) => ({
+      'N° reserva': f.registroOriginalId,
+      Evento: this.etiquetaTipo(f.tipo),
+      Cliente: f.nombreCliente,
+      Habitación: `P${f.piso} - ${f.habitacionNumero}`,
+      Camas: f.camas,
+      Fecha: new Date(f.fechaEvento).toLocaleString('es-MX'),
+      'Check-in': new Date(f.checkIn).toLocaleString('es-MX'),
+      'Check-out': f.checkOut ? new Date(f.checkOut).toLocaleString('es-MX') : '',
+      Total: Number(f.totalCobrado),
+      'Costo por cama': Number(f.costoPorCama),
+      'Otro cobro': Number(f.otroCobro),
+      Noches: f.noches,
+      'Documento de identidad': f.documentoIdentidad,
+      'Método de pago': this.desglosePagos(f).join(' | '),
+      Atendió: f.atendio,
+      'Canal de venta': f.canalVentaNombre ?? '',
+      Comentario: this.comentarioExtra(f).join(' | '),
+    }));
+
+    const resumen = [
+      { Concepto: 'Ingresos totales', Monto: r.resumen.totalIngresos },
+      { Concepto: 'Efectivo', Monto: r.resumen.efectivo },
+      { Concepto: 'Tarjeta', Monto: r.resumen.tarjeta },
+      { Concepto: 'N° huéspedes', Monto: r.resumen.numeroHuespedes },
+    ];
+
+    const libro = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(libro, XLSX.utils.json_to_sheet(filas), 'Movimientos');
+    XLSX.utils.book_append_sheet(libro, XLSX.utils.json_to_sheet(resumen), 'Resumen');
+    XLSX.writeFile(libro, `corte-de-caja_${this.desde()}_a_${this.hasta()}.xlsx`);
   }
 }
