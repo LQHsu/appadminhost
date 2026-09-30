@@ -1,6 +1,29 @@
 <div class="space-y-2">
   @for (linea of lineas(); track $index) {
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-2 flex-wrap">
+      @if (mostrarConcepto()) {
+        <select
+          [ngModel]="linea.conceptoExtraId ?? 0"
+          (ngModelChange)="actualizarConcepto($index, $event)"
+          class="rounded border-slate-300 text-sm"
+        >
+          <option [ngValue]="0">Concepto (opcional)</option>
+          @for (c of conceptoExtraService.conceptos(); track c.id) {
+            @if (c.activo) {
+              <option [ngValue]="c.id">{{ c.nombre }}</option>
+            }
+          }
+        </select>
+        <input
+          type="number"
+          min="1"
+          placeholder="Unidades"
+          [ngModel]="linea.unidades ?? ''"
+          (ngModelChange)="actualizarUnidades($index, $event)"
+          class="w-20 rounded border-slate-300 text-sm"
+        />
+      }
+
       @if (mostrarNota()) {
         <input
           type="text"

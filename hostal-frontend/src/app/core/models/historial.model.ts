@@ -11,6 +11,11 @@ export interface PagoHistorial {
   concepto: 'HOSPEDAJE' | 'MULTA' | 'COBRO_EXTRA';
   cantidad: number;
   nota: string | null;
+  // Solo tienen valor cuando concepto = COBRO_EXTRA (jabón, toallas,
+  // lockers, etc.) y se usó el catálogo — null si se cargó solo con
+  // nota libre.
+  conceptoExtraNombre: string | null;
+  unidades: number | null;
 }
 
 export interface Historial {
@@ -61,6 +66,8 @@ export interface PagoLineaEdicion {
   metodoPago: MetodoPago;
   cantidad: number;
   nota?: string;
+  conceptoExtraId?: number;
+  unidades?: number;
 }
 
 export interface UpdateHistorialDto {

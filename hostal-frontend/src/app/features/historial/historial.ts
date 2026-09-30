@@ -3,6 +3,7 @@ import { CurrencyPipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HistorialService } from '../../core/services/historial.service';
 import { CanalVentaService } from '../../core/services/canal-venta.service';
+import { ConceptoExtraService } from '../../core/services/concepto-extra.service';
 import { Historial, TipoEvento } from '../../core/models/historial.model';
 import { ReporteAnual } from '../reporte-anual/reporte-anual';
 import { ReporteDiario } from '../reporte-diario/reporte-diario';
@@ -28,6 +29,7 @@ import { aInputDatetimeLocal } from '../../shared/date-utils';
 export class HistorialComponent implements OnInit {
   historialService = inject(HistorialService);
   canalVentaService = inject(CanalVentaService);
+  conceptoExtraService = inject(ConceptoExtraService);
 
   hoy = new Date();
   anio = signal(this.hoy.getFullYear());
@@ -64,6 +66,7 @@ export class HistorialComponent implements OnInit {
     this.historialService.cargarHistorial();
     this.consultarReporte();
     this.canalVentaService.cargarCanales();
+    this.conceptoExtraService.cargarConceptos();
   }
 
   consultarReporte() {
@@ -105,9 +108,14 @@ export class HistorialComponent implements OnInit {
     return h.pagos
       .filter((p) => p.concepto !== 'HOSPEDAJE')
       .map((p) => {
-        const etiqueta = p.concepto === 'MULTA' ? 'Multa' : 'Cobro extra';
+        // Si se usó el catálogo, "Toallas x2" es más claro que la
+        // etiqueta genérica — si no, cae de regreso a "Cobro extra"/
+        // "Multa" + la nota libre, como antes.
+        const etiqueta =
+          p.conceptoExtraNombre ?? (p.concepto === 'MULTA' ? 'Multa' : 'Cobro extra');
+        const unidades = p.unidades ? ` x${p.unidades}` : '';
         const nota = p.nota ? `: ${p.nota}` : '';
-        return `${etiqueta}${nota} ($${p.cantidad})`;
+        return `${etiqueta}${unidades}${nota} ($${p.cantidad})`;
       });
   }
 
@@ -133,7 +141,20 @@ export class HistorialComponent implements OnInit {
     this.totalCobradoEdit.set(h.totalCobrado);
     this.pagosEdit.set(
       h.pagos && h.pagos.length > 0
-        ? h.pagos.map((p) => ({ metodoPago: p.metodoPago, cantidad: p.cantidad, nota: p.nota ?? undefined }))
+        ? h.pagos.map((p) => ({
+            metodoPago: p.metodoPago,
+            cantidad: p.cantidad,
+            nota: p.nota ?? undefined,
+            // Igual que con canalVentaIdEdit: solo se guardó el
+            // NOMBRE del concepto en esta fila, así que se busca por
+            // nombre en el catálogo actual para preseleccionarlo — si
+            // no hay coincidencia, se deja sin concepto pero se
+            // conservan igual las unidades ya capturadas.
+            conceptoExtraId: this.conceptoExtraService
+              .conceptos()
+              .find((c) => c.nombre === p.conceptoExtraNombre)?.id,
+            unidades: p.unidades ?? undefined,
+          }))
         : [{ metodoPago: h.metodoPago, cantidad: h.totalCobrado }],
     );
     const canalActual = this.canalVentaService.canales().find((c) => c.nombre === h.canalVentaNombre);

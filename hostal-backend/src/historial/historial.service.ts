@@ -5,6 +5,7 @@ import { Historial, TipoEvento } from './entities/historial.entity';
 import { Ingreso, ConceptoIngreso } from './entities/ingreso.entity';
 import { Registro } from '../registros/entities/registro.entity';
 import { CanalVenta } from '../canales-venta/entities/canal-venta.entity';
+import { ConceptoExtra } from '../conceptos-extra/entities/concepto-extra.entity';
 import { UpdateHistorialDto } from './dto/update-historial.dto';
 import { medianocheHostal, fechaYMDHostal } from '../common/zona-horaria';
 
@@ -78,6 +79,12 @@ export class HistorialService {
         if (existentes.length > 0) await manager.remove(existentes);
 
         for (const pago of dto.pagos) {
+          // Igual que en crearIngresos() (registros.service.ts): si la
+          // línea trae conceptoExtraId, se resuelve el nombre del
+          // catálogo para no perder el "Toallas x2" al reemplazar.
+          const conceptoExtra = pago.conceptoExtraId
+            ? await manager.findOne(ConceptoExtra, { where: { id: pago.conceptoExtraId } })
+            : null;
           await manager.save(
             manager.create(Ingreso, {
               historial: { id } as Ingreso['historial'],
@@ -86,6 +93,8 @@ export class HistorialService {
               metodoPago: pago.metodoPago,
               cantidad: pago.cantidad,
               nota: pago.nota,
+              conceptoExtraNombre: conceptoExtra?.nombre,
+              unidades: pago.unidades,
               fecha: historial.fechaEvento,
             }),
           );
@@ -231,6 +240,8 @@ export class HistorialService {
       concepto: i.concepto,
       cantidad: Number(i.cantidad),
       nota: i.nota,
+      conceptoExtraNombre: i.conceptoExtraNombre,
+      unidades: i.unidades,
     }));
     return { ...fila, pagos };
   }

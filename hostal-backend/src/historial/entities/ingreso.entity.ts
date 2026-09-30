@@ -55,4 +55,17 @@ export class Ingreso {
   // distintas y conviene saber qué fue cada una.
   @Column({ nullable: true })
   nota: string;
+
+  // Solo aplica cuando concepto = COBRO_EXTRA: de qué catálogo
+  // (jabón, toallas, lockers, desayuno, depósito, etc.) y cuántas
+  // unidades. Copiado del nombre del ConceptoExtra al momento de crear
+  // esta fila (mismo patrón que Historial.canalVentaNombre) — no es
+  // una relación viva, así que si el concepto se renombra después esta
+  // fila no cambia con él. Ambos opcionales: sigue siendo válido cargar
+  // un cobro extra solo con una nota libre, sin concepto del catálogo.
+  @Column({ nullable: true })
+  conceptoExtraNombre: string;
+
+  @Column({ nullable: true })
+  unidades: number;
 }

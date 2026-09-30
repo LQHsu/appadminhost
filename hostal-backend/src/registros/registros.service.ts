@@ -10,6 +10,7 @@ import { HistorialService } from '../historial/historial.service';
 import { Historial, TipoEvento } from '../historial/entities/historial.entity';
 import { Ingreso, ConceptoIngreso } from '../historial/entities/ingreso.entity';
 import { CanalVenta } from '../canales-venta/entities/canal-venta.entity';
+import { ConceptoExtra } from '../conceptos-extra/entities/concepto-extra.entity';
 import { medioDiaHostal, fechaYMDHostal } from '../common/zona-horaria';
 
 export type Status = 'VIGENTE' | 'PENDIENTE' | 'RENOVADO' | 'NO';
@@ -51,16 +52,21 @@ export class RegistrosService {
   }
 
   // Crea una fila de Ingreso por cada línea de pago, todas ligadas al
-  // mismo evento de Historial y al mismo huésped.
+  // mismo evento de Historial y al mismo huésped. conceptoExtraId/
+  // unidades solo tienen sentido en concepto=COBRO_EXTRA (jabón,
+  // toallas, lockers, etc.) — en HOSPEDAJE simplemente no vienen.
   private async crearIngresos(
     manager: EntityManager,
-    pagos: Array<{ metodoPago: MetodoPago; cantidad: number; nota?: string }>,
+    pagos: Array<{ metodoPago: MetodoPago; cantidad: number; nota?: string; conceptoExtraId?: number; unidades?: number }>,
     concepto: ConceptoIngreso,
     historialId: number,
     registroId: number,
     fecha: Date,
   ) {
     for (const pago of pagos) {
+      const conceptoExtra = pago.conceptoExtraId
+        ? await manager.findOne(ConceptoExtra, { where: { id: pago.conceptoExtraId } })
+        : null;
       const ingreso = manager.create(Ingreso, {
         historial: { id: historialId } as Ingreso['historial'],
         registro: { id: registroId } as Ingreso['registro'],
@@ -68,6 +74,8 @@ export class RegistrosService {
         metodoPago: pago.metodoPago,
         cantidad: pago.cantidad,
         nota: pago.nota,
+        conceptoExtraNombre: conceptoExtra?.nombre,
+        unidades: pago.unidades,
         fecha,
       });
       await manager.save(ingreso);
@@ -322,7 +330,13 @@ export class RegistrosService {
   async checkout(
     id: number,
     checkOutRealInput?: string,
-    cobrosExtra?: Array<{ metodoPago: MetodoPago; cantidad: number; nota?: string }>,
+    cobrosExtra?: Array<{
+      metodoPago: MetodoPago;
+      cantidad: number;
+      nota?: string;
+      conceptoExtraId?: number;
+      unidades?: number;
+    }>,
     otroCobroCheckout = 0,
     otroCobroCheckoutMetodoPago?: MetodoPago,
     multaTardio = 0,
@@ -412,7 +426,10 @@ export class RegistrosService {
   // huésped haga checkout — a diferencia de checkout(), aquí no se
   // toca checkOutEstimado/renovar/cerrado, solo se suma al total a
   // cobrar y queda su propia línea en Historial/Ingreso, fechada hoy.
-  async cobroExtra(id: number, cobros: Array<{ metodoPago: MetodoPago; cantidad: number; nota?: string }>) {
+  async cobroExtra(
+    id: number,
+    cobros: Array<{ metodoPago: MetodoPago; cantidad: number; nota?: string; conceptoExtraId?: number; unidades?: number }>,
+  ) {
     if (!cobros || cobros.length === 0) {
       throw new BadRequestException('Debes indicar al menos un cobro extra');
     }

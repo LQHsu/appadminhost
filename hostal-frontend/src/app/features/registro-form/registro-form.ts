@@ -176,6 +176,15 @@ export class RegistroForm implements OnInit {
     return new Date(`${fecha}T12:00:00`);
   }
 
+  // Aviso suave, NO bloquea el envío: se pidió que el nombre siempre
+  // incluya ambos apellidos para que quede consistente en reportes,
+  // pero es una convención de captura, no una regla que deba impedir
+  // registrar a alguien con un nombre legítimamente corto/atípico.
+  nombrePareceCompleto(): boolean {
+    const nombre = (this.form.value.nombreCliente ?? '').trim();
+    return nombre.split(/\s+/).filter(Boolean).length >= 3;
+  }
+
   habitacionSeleccionada() {
     const id = this.form.value.habitacionId;
     return this.habitacionesService.disponibilidad().find((h) => h.id === id);

@@ -1,12 +1,17 @@
-import { Component, computed, input, output } from '@angular/core';
+import { Component, computed, inject, input, OnInit, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CurrencyPipe } from '@angular/common';
 import { MetodoPago } from '../../core/models/registro.model';
+import { ConceptoExtraService } from '../../core/services/concepto-extra.service';
 
 export interface LineaCobro {
   metodoPago: MetodoPago;
   cantidad: number;
   nota?: string;
+  // Solo tienen sentido cuando se usa para cobros extra (ver
+  // `mostrarConcepto`), no para el pago normal de hospedaje.
+  conceptoExtraId?: number;
+  unidades?: number;
 }
 
 // Si se pasa `totalObjetivo`, la lista tiene que sumar exacto ese
@@ -27,13 +32,23 @@ export function resolverLineasCobro(lineas: LineaCobro[], totalObjetivo?: number
   imports: [FormsModule, CurrencyPipe],
   templateUrl: './lineas-cobro.html',
 })
-export class LineasCobro {
+export class LineasCobro implements OnInit {
+  conceptoExtraService = inject(ConceptoExtraService);
+
   lineas = input.required<LineaCobro[]>();
   lineasChange = output<LineaCobro[]>();
 
   totalObjetivo = input<number | undefined>(undefined);
   mostrarNota = input(false);
+  // Solo aplica a cobros extra (checkout/cobro-extra), no al pago
+  // normal de hospedaje (check-in/renovar) — agrega un selector del
+  // catálogo de conceptos y un campo de unidades por línea.
+  mostrarConcepto = input(false);
   etiquetaAgregar = input('+ Agregar otro método');
+
+  ngOnInit() {
+    this.conceptoExtraService.cargarConceptos();
+  }
 
   sumaActual = computed(() => this.lineas().reduce((s, l) => s + (Number(l.cantidad) || 0), 0));
 
@@ -66,5 +81,15 @@ export class LineasCobro {
 
   actualizarNota(index: number, nota: string) {
     this.lineasChange.emit(this.lineas().map((l, i) => (i === index ? { ...l, nota } : l)));
+  }
+
+  actualizarConcepto(index: number, conceptoExtraId: number) {
+    this.lineasChange.emit(
+      this.lineas().map((l, i) => (i === index ? { ...l, conceptoExtraId: conceptoExtraId || undefined } : l)),
+    );
+  }
+
+  actualizarUnidades(index: number, unidades: number) {
+    this.lineasChange.emit(this.lineas().map((l, i) => (i === index ? { ...l, unidades: unidades || undefined } : l)));
   }
 }

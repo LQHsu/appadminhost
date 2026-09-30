@@ -7,10 +7,14 @@
       <input
         formControlName="nombreCliente"
         type="text"
+        placeholder="Nombre(s) y ambos apellidos"
         class="w-full rounded border-slate-300 focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
       />
+      <p class="text-xs text-slate-500 mt-1">Escríbelo completo, con ambos apellidos, siempre igual — ayuda a identificar al huésped en reportes y reservas futuras.</p>
       @if (form.get('nombreCliente')?.invalid && form.get('nombreCliente')?.touched) {
         <p class="text-xs text-red-600 mt-1">El nombre del cliente es requerido</p>
+      } @else if (form.get('nombreCliente')?.touched && !nombrePareceCompleto()) {
+        <p class="text-xs text-amber-600 mt-1">Parece incompleto — confirma que incluya nombre y ambos apellidos</p>
       }
     </div>
 
