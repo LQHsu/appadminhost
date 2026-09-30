@@ -1,7 +1,7 @@
-import { IsInt, IsOptional, IsPositive, IsString } from 'class-validator';
+import { IsInt, IsNumber, IsOptional, IsPositive, IsString } from 'class-validator';
 
 // Todos los campos opcionales — se manda solo lo que cambió (número,
-// piso, o cuántas camas tiene en realidad).
+// piso, cuántas camas tiene en realidad, o su tarifa vigente).
 export class UpdateHabitacionDto {
   @IsOptional()
   @IsInt()
@@ -16,4 +16,9 @@ export class UpdateHabitacionDto {
   @IsInt()
   @IsPositive()
   camasTotales?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  costoPorCama?: number;
 }

@@ -59,13 +59,24 @@
         <table class="w-full text-sm text-left">
           <thead class="text-slate-500 border-b">
             <tr>
-              <th class="py-2 pr-3">Nombre</th>
+              <th class="py-2 pr-3">N° movimiento</th>
+              <th class="py-2 pr-3">N° reserva</th>
               <th class="py-2 pr-3">Evento</th>
-              <th class="py-2 pr-3">Periodo</th>
-              <th class="py-2 pr-3 text-right">Monto</th>
-              <th class="py-2 pr-3">Cuarto</th>
-              <th class="py-2 pr-3 text-right">Camas</th>
+              <th class="py-2 pr-3">Cliente</th>
+              <th class="py-2 pr-3">Habitación</th>
+              <th class="py-2 pr-3">Camas</th>
+              <th class="py-2 pr-3">Fecha</th>
+              <th class="py-2 pr-3">Check-in</th>
+              <th class="py-2 pr-3">Check-out</th>
+              <th class="py-2 pr-3">Total</th>
+              <th class="py-2 pr-3">Costo por cama</th>
+              <th class="py-2 pr-3">Otro cobro</th>
+              <th class="py-2 pr-3">Noches</th>
+              <th class="py-2 pr-3">Documento de identidad</th>
               <th class="py-2 pr-3">Método de pago</th>
+              <th class="py-2 pr-3">Atendió</th>
+              <th class="py-2 pr-3">Canal de venta</th>
+              <th class="py-2 pr-3">Comentario</th>
             </tr>
           </thead>
           <tbody>
@@ -74,22 +85,42 @@
                 class="border-b last:border-0"
                 [class.oculto-en-impresion]="f.tipo === 'CHECKOUT' && !montoCobradoEn(f)"
               >
-                <td class="py-2 pr-3">{{ f.nombreCliente }}</td>
+                <td class="py-2 pr-3">{{ f.id }}</td>
+                <td class="py-2 pr-3">{{ f.registroOriginalId }}</td>
                 <td class="py-2 pr-3">
                   <span class="px-2 py-1 rounded text-xs font-medium no-imprimir" [class]="claseTipo(f.tipo)">
                     {{ etiquetaTipo(f.tipo) }}
                   </span>
                   <span class="solo-imprimir">{{ etiquetaTipo(f.tipo) }}</span>
                 </td>
-                <td class="py-2 pr-3">
-                  {{ f.periodoDesde | date: 'short' }} al {{ f.periodoHasta | date: 'short' }}
-                </td>
-                <td class="py-2 pr-3 text-right">{{ f.totalCobrado | currency: 'MXN' }}</td>
+                <td class="py-2 pr-3">{{ f.nombreCliente }}</td>
                 <td class="py-2 pr-3">P{{ f.piso }} - {{ f.habitacionNumero }}</td>
-                <td class="py-2 pr-3 text-right">{{ f.camas }}</td>
+                <td class="py-2 pr-3">{{ f.camas }}</td>
+                <td class="py-2 pr-3">{{ f.fechaEvento | date: 'short' }}</td>
+                <td class="py-2 pr-3">{{ f.checkIn | date: 'short' }}</td>
+                <td class="py-2 pr-3">{{ f.checkOut ? (f.checkOut | date: 'short') : '—' }}</td>
+                <td class="py-2 pr-3">
+                  {{ f.totalCobrado | currency: 'MXN' }}
+                  @if (f.multa > 0) {
+                    <span class="block text-xs text-amber-600">incluye {{ f.multa | currency: 'MXN' }} de multa</span>
+                  }
+                </td>
+                <td class="py-2 pr-3">{{ f.costoPorCama | currency: 'MXN' }}</td>
+                <td class="py-2 pr-3">{{ f.otroCobro | currency: 'MXN' }}</td>
+                <td class="py-2 pr-3">{{ f.noches }}</td>
+                <td class="py-2 pr-3">{{ f.documentoIdentidad }}</td>
                 <td class="py-2 pr-3">
                   @for (linea of desglosePagos(f); track linea) {
                     <span class="block">{{ linea }}</span>
+                  }
+                </td>
+                <td class="py-2 pr-3">{{ f.atendio }}</td>
+                <td class="py-2 pr-3">{{ f.canalVentaNombre ?? '—' }}</td>
+                <td class="py-2 pr-3">
+                  @for (linea of comentarioExtra(f); track linea) {
+                    <span class="block">{{ linea }}</span>
+                  } @empty {
+                    —
                   }
                 </td>
               </tr>
@@ -97,52 +128,102 @@
           </tbody>
           <tfoot>
             <tr class="border-t-2 border-slate-300 font-semibold text-slate-800">
-              <td class="py-2 pr-3" colspan="3">Total del periodo</td>
-              <td class="py-2 pr-3 text-right">{{ r.resumen.totalIngresos | currency: 'MXN' }}</td>
-              <td></td>
-              <td></td>
-              <td></td>
+              <td class="py-2 pr-3" colspan="9">Total del periodo</td>
+              <td class="py-2 pr-3">{{ r.resumen.totalIngresos | currency: 'MXN' }}</td>
+              <td colspan="8"></td>
             </tr>
           </tfoot>
         </table>
       </div>
     }
 
-    <!-- Corte de caja: a quién se entrega, cuánto, quién entrega, y el
-         total que calculó el sistema para comparar. -->
+    <!-- Corte de caja: conteo físico por denominación, conciliación
+         contra el sistema, y quién entrega/recibe. -->
     <div class="border-t pt-4 mt-2">
       <h3 class="text-sm font-semibold text-slate-700 mb-3 no-imprimir">Corte de caja</h3>
 
+      @if (errorCorte()) {
+        <p class="text-red-600 text-xs bg-red-50 border border-red-100 rounded p-2 mb-3 no-imprimir">{{ errorCorte() }}</p>
+      }
+
+      <!-- Conteo de efectivo por denominación -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 no-imprimir mb-4">
+        <div>
+          <p class="text-xs font-medium text-slate-600 mb-2">Billetes</p>
+          <div class="space-y-1">
+            @for (valor of billetes; track valor) {
+              <div class="flex items-center justify-between gap-2 text-sm">
+                <span class="text-slate-600">{{ valor | currency: 'MXN' : 'symbol' : '1.0-0' }}</span>
+                <input
+                  type="number" min="0" step="1"
+                  [ngModel]="cantidadDe(valor)"
+                  (ngModelChange)="actualizarCantidadDenominacion(valor, $event)"
+                  class="w-20 rounded border-slate-300 text-sm"
+                />
+                <span class="text-slate-500 w-24 text-right">{{ subtotalDe(valor) | currency: 'MXN' }}</span>
+              </div>
+            }
+          </div>
+        </div>
+        <div>
+          <p class="text-xs font-medium text-slate-600 mb-2">Monedas</p>
+          <div class="space-y-1">
+            @for (valor of monedas; track valor) {
+              <div class="flex items-center justify-between gap-2 text-sm">
+                <span class="text-slate-600">{{ valor | currency: 'MXN' }}</span>
+                <input
+                  type="number" min="0" step="1"
+                  [ngModel]="cantidadDe(valor)"
+                  (ngModelChange)="actualizarCantidadDenominacion(valor, $event)"
+                  class="w-20 rounded border-slate-300 text-sm"
+                />
+                <span class="text-slate-500 w-24 text-right">{{ subtotalDe(valor) | currency: 'MXN' }}</span>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 no-imprimir">
+        <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
+          <p class="text-xs text-slate-500">Total contado (efectivo)</p>
+          <p class="text-xl font-semibold text-slate-800">{{ totalContado() | currency: 'MXN' }}</p>
+          <p class="text-xs text-slate-500 mt-1">Sistema: {{ r.resumen.efectivo | currency: 'MXN' }}</p>
+          @if (diferenciaEfectivo() !== null) {
+            <p class="text-xs font-medium mt-1"
+               [class.text-emerald-600]="diferenciaEfectivo() === 0"
+               [class.text-red-600]="diferenciaEfectivo() !== 0">
+              Diferencia: {{ diferenciaEfectivo() | currency: 'MXN' }}
+            </p>
+          }
+        </div>
+        <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
+          <label class="block text-xs font-medium text-slate-600 mb-1">Reporte de terminal (tarjeta)</label>
+          <input type="number" min="0" step="0.01" [ngModel]="reporteTerminal()"
+                 (ngModelChange)="reporteTerminal.set($event)" placeholder="Opcional"
+                 class="w-full rounded border-slate-300 mb-1" />
+          <p class="text-xs text-slate-500">Sistema: {{ r.resumen.tarjeta | currency: 'MXN' }}</p>
+          @if (diferenciaTarjeta() !== null) {
+            <p class="text-xs font-medium mt-1"
+               [class.text-emerald-600]="diferenciaTarjeta() === 0"
+               [class.text-red-600]="diferenciaTarjeta() !== 0">
+              Diferencia: {{ diferenciaTarjeta() | currency: 'MXN' }}
+            </p>
+          }
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 no-imprimir mt-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Entregado por (cajero)</label>
+          <input type="text" [ngModel]="entregadoPor()" (ngModelChange)="entregadoPor.set($event)"
+                 placeholder="Nombre de quien entrega" class="w-full rounded border-slate-300" />
+        </div>
         <div>
           <label class="block text-xs font-medium text-slate-600 mb-1">Se entrega a</label>
           <input type="text" [ngModel]="entregadoA()" (ngModelChange)="entregadoA.set($event)"
                  placeholder="Nombre de quien recibe" class="w-full rounded border-slate-300" />
         </div>
-        <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Cantidad entregada</label>
-          <input type="number" min="0" step="0.01" [ngModel]="cantidadEntregada()"
-                 (ngModelChange)="cantidadEntregada.set($event)" placeholder="0.00"
-                 class="w-full rounded border-slate-300" />
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Entregado por</label>
-          <input type="text" [ngModel]="entregadoPor()" (ngModelChange)="entregadoPor.set($event)"
-                 placeholder="Nombre de quien entrega" class="w-full rounded border-slate-300" />
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Total calculado por el sistema</label>
-          <input type="text" [value]="r.resumen.totalIngresos | currency: 'MXN'" disabled
-                 class="w-full rounded border-slate-200 bg-slate-50 text-slate-600" />
-        </div>
-      </div>
-
-      <!-- Misma info en texto plano, solo para el PDF -->
-      <div class="solo-imprimir text-sm text-slate-700 space-y-1">
-        <p>Se entrega a: <strong>{{ entregadoA() || '_______________' }}</strong></p>
-        <p>Cantidad entregada: <strong>{{ (cantidadEntregada() ?? 0) | currency: 'MXN' }}</strong></p>
-        <p>Total calculado por el sistema: <strong>{{ r.resumen.totalIngresos | currency: 'MXN' }}</strong></p>
-        <p>Entregado por: <strong>{{ entregadoPor() || '_______________' }}</strong></p>
       </div>
 
       <div class="mt-4 no-imprimir">
@@ -151,10 +232,170 @@
                   class="w-full rounded border-slate-300"></textarea>
       </div>
 
+      <button (click)="guardarCorte()" [disabled]="guardandoCorte()"
+              class="mt-3 px-4 py-2 rounded bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 no-imprimir">
+        {{ guardandoCorte() ? 'Guardando...' : 'Guardar corte de caja' }}
+      </button>
+
+      <!-- Cortes ya guardados para este mismo rango -->
+      @if (corteCajaService.cortes().length > 0) {
+        <div class="mt-6 no-imprimir">
+          <p class="text-xs font-medium text-slate-600 mb-2">Cortes guardados para este rango</p>
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left">
+              <thead class="text-slate-500 border-b">
+                <tr>
+                  <th class="py-1 pr-3">Fecha/hora</th>
+                  <th class="py-1 pr-3">Contado</th>
+                  <th class="py-1 pr-3">Diferencia efectivo</th>
+                  <th class="py-1 pr-3">Diferencia tarjeta</th>
+                  <th class="py-1 pr-3">Entregó</th>
+                  <th class="py-1 pr-3">Recibió</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (c of corteCajaService.cortes(); track c.id) {
+                  <tr class="border-b last:border-0">
+                    <td class="py-1 pr-3">{{ c.creadoEn | date: 'short' }}</td>
+                    <td class="py-1 pr-3">{{ c.efectivoContado | currency: 'MXN' }}</td>
+                    <td class="py-1 pr-3" [class.text-red-600]="c.diferenciaEfectivo !== 0">
+                      {{ c.diferenciaEfectivo | currency: 'MXN' }}
+                    </td>
+                    <td class="py-1 pr-3" [class.text-red-600]="c.diferenciaTarjeta !== null && c.diferenciaTarjeta !== 0">
+                      {{ c.diferenciaTarjeta !== null ? (c.diferenciaTarjeta | currency: 'MXN') : '—' }}
+                    </td>
+                    <td class="py-1 pr-3">{{ c.entregadoPor }}</td>
+                    <td class="py-1 pr-3">{{ c.entregadoA }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
+
+      <!-- Versión para el PDF: desglose de denominaciones + firmas en
+           texto, solo lo capturado en esta pantalla (no depende de que
+           ya se haya guardado el corte). -->
+      <div class="solo-imprimir text-sm text-slate-700 space-y-1 mt-4">
+        <p class="font-semibold">Conteo de efectivo</p>
+        @for (d of denominaciones(); track d.valor) {
+          @if (d.cantidad > 0) {
+            <p>{{ d.valor | currency: 'MXN' }} x {{ d.cantidad }} = {{ (d.valor * d.cantidad) | currency: 'MXN' }}</p>
+          }
+        }
+        <p>Total contado: <strong>{{ totalContado() | currency: 'MXN' }}</strong></p>
+        <p>Total calculado por el sistema (efectivo): <strong>{{ r.resumen.efectivo | currency: 'MXN' }}</strong></p>
+        @if (diferenciaEfectivo() !== null) {
+          <p>Diferencia: <strong>{{ diferenciaEfectivo() | currency: 'MXN' }}</strong></p>
+        }
+        @if (reporteTerminal() !== null) {
+          <p class="mt-2">Reporte de terminal (tarjeta): <strong>{{ reporteTerminal() | currency: 'MXN' }}</strong></p>
+          <p>Total calculado por el sistema (tarjeta): <strong>{{ r.resumen.tarjeta | currency: 'MXN' }}</strong></p>
+          <p>Diferencia: <strong>{{ diferenciaTarjeta() | currency: 'MXN' }}</strong></p>
+        }
+        <p class="mt-2">Entregado por: <strong>{{ entregadoPor() || '_______________' }}</strong></p>
+        <p>Se entrega a: <strong>{{ entregadoA() || '_______________' }}</strong></p>
+      </div>
+
       <!-- Los comentarios van hasta el final del PDF -->
       <div class="solo-imprimir mt-8 pt-4 border-t text-xs text-slate-600">
         <p class="font-semibold mb-1">Comentarios:</p>
         <p class="whitespace-pre-wrap">{{ comentarios() || '—' }}</p>
+      </div>
+    </div>
+
+    <!-- Acuse de recepción: distinto del corte de caja de arriba — ahí
+         se entrega el EFECTIVO dentro del hostal; aquí se deja
+         constancia de que el dueño recibió la DOCUMENTACIÓN (PDF,
+         Excel, anexos) de este periodo. -->
+    <div class="border-t pt-4 mt-6">
+      <h3 class="text-sm font-semibold text-slate-700 mb-3 no-imprimir">Acuse de recepción</h3>
+      <p class="text-xs text-slate-500 mb-3 no-imprimir">
+        Constancia de que el dueño recibió la documentación de este periodo (no el efectivo).
+      </p>
+
+      @if (errorAcuse()) {
+        <p class="text-red-600 text-xs bg-red-50 border border-red-100 rounded p-2 mb-3 no-imprimir">{{ errorAcuse() }}</p>
+      }
+
+      <div class="no-imprimir">
+        <p class="text-xs font-medium text-slate-600 mb-1">Documentos entregados</p>
+        <div class="flex gap-4 mb-3">
+          @for (doc of documentosDisponibles; track doc) {
+            <label class="flex items-center gap-1.5 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                [checked]="documentosEntregados().includes(doc)"
+                (change)="alternarDocumento(doc)"
+                class="rounded border-slate-300"
+              />
+              {{ doc === 'PDF' ? 'PDF' : doc === 'EXCEL' ? 'Excel' : 'Anexos' }}
+            </label>
+          }
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 no-imprimir">
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Fecha de recepción</label>
+          <input type="date" [ngModel]="fechaRecepcion()" (ngModelChange)="fechaRecepcion.set($event)"
+                 class="w-full rounded border-slate-300" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Recibió (firma)</label>
+          <input type="text" [ngModel]="firmaRecibio()" (ngModelChange)="firmaRecibio.set($event)"
+                 placeholder="Nombre de quien recibe la documentación" class="w-full rounded border-slate-300" />
+        </div>
+      </div>
+
+      <div class="mt-3 no-imprimir">
+        <label class="block text-xs font-medium text-slate-600 mb-1">Comentarios</label>
+        <textarea rows="2" [ngModel]="comentariosAcuse()" (ngModelChange)="comentariosAcuse.set($event)"
+                  class="w-full rounded border-slate-300"></textarea>
+      </div>
+
+      <button (click)="guardarAcuse()" [disabled]="guardandoAcuse()"
+              class="mt-3 px-4 py-2 rounded bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 no-imprimir">
+        {{ guardandoAcuse() ? 'Guardando...' : 'Registrar acuse de recepción' }}
+      </button>
+
+      <!-- Acuses ya guardados para este mismo rango -->
+      @if (acuseRecepcionService.acuses().length > 0) {
+        <div class="mt-6 no-imprimir">
+          <p class="text-xs font-medium text-slate-600 mb-2">Acuses guardados para este rango</p>
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left">
+              <thead class="text-slate-500 border-b">
+                <tr>
+                  <th class="py-1 pr-3">Fecha de recepción</th>
+                  <th class="py-1 pr-3">Documentos</th>
+                  <th class="py-1 pr-3">Recibió</th>
+                  <th class="py-1 pr-3">Registrado</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (a of acuseRecepcionService.acuses(); track a.id) {
+                  <tr class="border-b last:border-0">
+                    <td class="py-1 pr-3">{{ a.fechaRecepcion | date: 'mediumDate' }}</td>
+                    <td class="py-1 pr-3">{{ a.documentosEntregados.join(', ') }}</td>
+                    <td class="py-1 pr-3">{{ a.firmaRecibio }}</td>
+                    <td class="py-1 pr-3">{{ a.creadoEn | date: 'short' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
+
+      <!-- Versión para el PDF -->
+      <div class="solo-imprimir text-sm text-slate-700 space-y-1 mt-4">
+        <p class="font-semibold">Acuse de recepción</p>
+        <p>Periodo: <strong>{{ rangoTexto() }}</strong></p>
+        <p>Documentos entregados: <strong>{{ documentosEntregados().join(', ') || '_______________' }}</strong></p>
+        <p>Fecha de recepción: <strong>{{ fechaRecepcion() }}</strong></p>
+        <p>Recibió: <strong>{{ firmaRecibio() || '_______________' }}</strong></p>
       </div>
     </div>
   } @else {

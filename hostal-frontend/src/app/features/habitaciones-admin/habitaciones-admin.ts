@@ -1,13 +1,15 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
+import { CurrencyPipe } from '@angular/common';
 import { HabitacionesService } from '../../core/services/habitaciones.service';
 import { Habitacion } from '../../core/models/habitacion.model';
 
 // Pantalla mínima para dar de alta habitaciones (piso, número, camas
-// totales). Sin esto no hay a qué asignar los registros.
+// totales, tarifa vigente por cama). Sin esto no hay a qué asignar los
+// registros.
 @Component({
   selector: 'app-habitaciones-admin',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, CurrencyPipe],
   templateUrl: './habitaciones-admin.html',
 })
 export class HabitacionesAdmin implements OnInit {
@@ -18,6 +20,9 @@ export class HabitacionesAdmin implements OnInit {
     piso: [1, [Validators.required, Validators.min(1)]],
     numero: ['', Validators.required],
     camasTotales: [4, [Validators.required, Validators.min(1)]],
+    // 0 = sin tarifa fijada todavía (opcional) — mismo sentinel que ya
+    // se usa en otros selects/campos opcionales de la app.
+    costoPorCama: [0],
   });
 
   // Habitación que se está editando ahora mismo (null = ninguna).
@@ -28,6 +33,7 @@ export class HabitacionesAdmin implements OnInit {
     piso: [1, [Validators.required, Validators.min(1)]],
     numero: ['', Validators.required],
     camasTotales: [4, [Validators.required, Validators.min(1)]],
+    costoPorCama: [0],
   });
 
   ngOnInit() {
@@ -39,16 +45,19 @@ export class HabitacionesAdmin implements OnInit {
       this.form.markAllAsTouched();
       return;
     }
-    this.habitacionesService.crearHabitacion(this.form.getRawValue()).subscribe(() => {
-      this.form.reset({ piso: 1, numero: '', camasTotales: 4 });
-      this.habitacionesService.cargarHabitaciones();
-    });
+    const { costoPorCama, ...resto } = this.form.getRawValue();
+    this.habitacionesService
+      .crearHabitacion({ ...resto, costoPorCama: costoPorCama > 0 ? costoPorCama : undefined })
+      .subscribe(() => {
+        this.form.reset({ piso: 1, numero: '', camasTotales: 4, costoPorCama: 0 });
+        this.habitacionesService.cargarHabitaciones();
+      });
   }
 
   editar(h: Habitacion) {
     this.errorEdicion.set(null);
     this.editandoId.set(h.id);
-    this.editForm.reset({ piso: h.piso, numero: h.numero, camasTotales: h.camasTotales });
+    this.editForm.reset({ piso: h.piso, numero: h.numero, camasTotales: h.camasTotales, costoPorCama: h.costoPorCama ?? 0 });
   }
 
   cancelarEdicion() {
@@ -62,14 +71,17 @@ export class HabitacionesAdmin implements OnInit {
       return;
     }
     this.errorEdicion.set(null);
-    this.habitacionesService.actualizarHabitacion(id, this.editForm.getRawValue()).subscribe({
-      next: () => {
-        this.editandoId.set(null);
-        this.habitacionesService.cargarHabitaciones();
-      },
-      error: (err) => {
-        this.errorEdicion.set(err?.error?.message ?? 'No se pudo guardar el cambio.');
-      },
-    });
+    const { costoPorCama, ...resto } = this.editForm.getRawValue();
+    this.habitacionesService
+      .actualizarHabitacion(id, { ...resto, costoPorCama: costoPorCama > 0 ? costoPorCama : undefined })
+      .subscribe({
+        next: () => {
+          this.editandoId.set(null);
+          this.habitacionesService.cargarHabitaciones();
+        },
+        error: (err) => {
+          this.errorEdicion.set(err?.error?.message ?? 'No se pudo guardar el cambio.');
+        },
+      });
   }
 }

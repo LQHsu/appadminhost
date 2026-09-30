@@ -2,13 +2,27 @@ import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HistorialService } from '../../core/services/historial.service';
+import { CorteCajaService } from '../../core/services/corte-caja.service';
+import { AcuseRecepcionService } from '../../core/services/acuse-recepcion.service';
 import { Historial, TipoEvento } from '../../core/models/historial.model';
+import { Denominacion } from '../../core/models/corte-caja.model';
+import { TipoDocumento } from '../../core/models/acuse-recepcion.model';
 
 function hoyIso(): string {
   const hoy = new Date();
   const mes = String(hoy.getMonth() + 1).padStart(2, '0');
   const dia = String(hoy.getDate()).padStart(2, '0');
   return `${hoy.getFullYear()}-${mes}-${dia}`;
+}
+
+// Denominaciones vigentes de pesos mexicanos. Es una lista fija en
+// código (no un catálogo editable como canal de venta/concepto extra)
+// porque cambia por decisión de Banxico, no por el hostal.
+const BILLETES = [1000, 500, 200, 100, 50, 20];
+const MONEDAS = [20, 10, 5, 2, 1, 0.5];
+
+function denominacionesVacias(): Denominacion[] {
+  return [...BILLETES, ...MONEDAS].map((valor) => ({ valor, cantidad: 0 }));
 }
 
 // Antes era "reporte por mes con una fila por día"; ahora es un
@@ -22,16 +36,60 @@ function hoyIso(): string {
 })
 export class ReporteDiario implements OnInit {
   historialService = inject(HistorialService);
+  corteCajaService = inject(CorteCajaService);
+  acuseRecepcionService = inject(AcuseRecepcionService);
 
   desde = signal(hoyIso());
   hasta = signal(hoyIso());
 
-  // Datos del corte de caja: se capturan a mano para armar el PDF de
-  // esta consulta puntual — no se guardan en el backend.
+  // Conteo físico por denominación — reemplaza el viejo campo libre
+  // "cantidad entregada": el total contado ahora siempre sale de sumar
+  // billetes/monedas reales, no de un número escrito a mano que podía
+  // no corresponder a nada.
+  billetes = BILLETES;
+  monedas = MONEDAS;
+  denominaciones = signal<Denominacion[]>(denominacionesVacias());
+  totalContado = computed(() => this.denominaciones().reduce((s, d) => s + d.valor * d.cantidad, 0));
+
+  // Lo que reportó la terminal bancaria — opcional, para conciliar
+  // tarjeta igual que el efectivo.
+  reporteTerminal = signal<number | null>(null);
+
+  // Diferencia contra lo que el sistema calculó para este mismo rango
+  // — se recalcula en vivo mientras se cuenta, antes incluso de
+  // guardar, para que quien cuenta vea de inmediato si cuadra.
+  diferenciaEfectivo = computed(() => {
+    const r = this.historialService.reporteDiario();
+    return r ? this.totalContado() - r.resumen.efectivo : null;
+  });
+
+  diferenciaTarjeta = computed(() => {
+    const r = this.historialService.reporteDiario();
+    const terminal = this.reporteTerminal();
+    return r && terminal !== null ? terminal - r.resumen.tarjeta : null;
+  });
+
+  // Nombres de quien entrega (cajero) y quien recibe dentro del hostal
+  // — texto simple, no firma dibujada.
   entregadoA = signal('');
-  cantidadEntregada = signal<number | null>(null);
   entregadoPor = signal('');
   comentarios = signal('');
+
+  guardandoCorte = signal(false);
+  errorCorte = signal('');
+
+  // --- Acuse de recepción: el dueño recibe solo la documentación
+  // (PDF/Excel/anexos), no el efectivo — es un comprobante aparte del
+  // corte de caja (ver entregadoPor/entregadoA arriba, que es el
+  // control interno del dinero). ---
+
+  documentosDisponibles: TipoDocumento[] = ['PDF', 'EXCEL', 'ANEXOS'];
+  documentosEntregados = signal<TipoDocumento[]>([]);
+  fechaRecepcion = signal(hoyIso());
+  firmaRecibio = signal('');
+  comentariosAcuse = signal('');
+  guardandoAcuse = signal(false);
+  errorAcuse = signal('');
 
   ngOnInit() {
     this.consultar();
@@ -39,6 +97,96 @@ export class ReporteDiario implements OnInit {
 
   consultar() {
     this.historialService.cargarReporteDiario(this.desde(), this.hasta());
+    this.corteCajaService.cargarCortes(this.desde(), this.hasta());
+    this.acuseRecepcionService.cargarAcuses(this.desde(), this.hasta());
+  }
+
+  actualizarCantidadDenominacion(valor: number, cantidad: number) {
+    this.denominaciones.set(this.denominaciones().map((d) => (d.valor === valor ? { ...d, cantidad } : d)));
+  }
+
+  cantidadDe(valor: number): number {
+    return this.denominaciones().find((d) => d.valor === valor)?.cantidad ?? 0;
+  }
+
+  subtotalDe(valor: number): number {
+    return valor * this.cantidadDe(valor);
+  }
+
+  guardarCorte() {
+    if (!this.entregadoPor() || !this.entregadoA()) {
+      this.errorCorte.set('Escribe quién entrega y quién recibe.');
+      return;
+    }
+    this.errorCorte.set('');
+    this.guardandoCorte.set(true);
+    this.corteCajaService
+      .crearCorte({
+        desde: this.desde(),
+        hasta: this.hasta(),
+        denominaciones: this.denominaciones(),
+        reporteTerminal: this.reporteTerminal() ?? undefined,
+        entregadoPor: this.entregadoPor(),
+        entregadoA: this.entregadoA(),
+        comentarios: this.comentarios() || undefined,
+      })
+      .subscribe({
+        next: () => {
+          this.guardandoCorte.set(false);
+          // Se limpia el conteo (ya quedó guardado) pero se conservan
+          // los nombres — lo normal es que sean las mismas personas la
+          // próxima vez.
+          this.denominaciones.set(denominacionesVacias());
+          this.reporteTerminal.set(null);
+          this.comentarios.set('');
+          this.corteCajaService.cargarCortes(this.desde(), this.hasta());
+        },
+        error: (err) => {
+          this.guardandoCorte.set(false);
+          this.errorCorte.set(err.error?.message ?? 'No se pudo guardar el corte de caja');
+        },
+      });
+  }
+
+  alternarDocumento(doc: TipoDocumento) {
+    const actuales = this.documentosEntregados();
+    this.documentosEntregados.set(
+      actuales.includes(doc) ? actuales.filter((d) => d !== doc) : [...actuales, doc],
+    );
+  }
+
+  guardarAcuse() {
+    if (this.documentosEntregados().length === 0) {
+      this.errorAcuse.set('Marca al menos un documento entregado.');
+      return;
+    }
+    if (!this.firmaRecibio()) {
+      this.errorAcuse.set('Escribe el nombre de quien recibe.');
+      return;
+    }
+    this.errorAcuse.set('');
+    this.guardandoAcuse.set(true);
+    this.acuseRecepcionService
+      .crearAcuse({
+        desde: this.desde(),
+        hasta: this.hasta(),
+        documentosEntregados: this.documentosEntregados(),
+        fechaRecepcion: this.fechaRecepcion(),
+        firmaRecibio: this.firmaRecibio(),
+        comentarios: this.comentariosAcuse() || undefined,
+      })
+      .subscribe({
+        next: () => {
+          this.guardandoAcuse.set(false);
+          this.documentosEntregados.set([]);
+          this.comentariosAcuse.set('');
+          this.acuseRecepcionService.cargarAcuses(this.desde(), this.hasta());
+        },
+        error: (err) => {
+          this.guardandoAcuse.set(false);
+          this.errorAcuse.set(err.error?.message ?? 'No se pudo guardar el acuse de recepción');
+        },
+      });
   }
 
   rangoTexto = computed(() => {
@@ -89,6 +237,22 @@ export class ReporteDiario implements OnInit {
       return f.pagos.map((p) => `${p.metodoPago}: $${p.cantidad}`);
     }
     return [f.metodoPago];
+  }
+
+  // Misma lógica que historial.ts: arma texto legible a partir de las
+  // líneas de Ingreso que NO son el cobro normal de hospedaje (cobros
+  // extra, multa), usando el concepto del catálogo si se usó, o la
+  // nota libre si no.
+  comentarioExtra(f: Historial): string[] {
+    if (!f.pagos) return [];
+    return f.pagos
+      .filter((p) => p.concepto !== 'HOSPEDAJE')
+      .map((p) => {
+        const etiqueta = p.conceptoExtraNombre ?? (p.concepto === 'MULTA' ? 'Multa' : 'Cobro extra');
+        const unidades = p.unidades ? ` x${p.unidades}` : '';
+        const nota = p.nota ? `: ${p.nota}` : '';
+        return `${etiqueta}${unidades}${nota} ($${p.cantidad})`;
+      });
   }
 
   claseTipo(tipo: TipoEvento): string {

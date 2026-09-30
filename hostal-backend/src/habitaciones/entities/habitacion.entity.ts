@@ -24,6 +24,14 @@ export class Habitacion {
   @Column()
   camasTotales: number;
 
+  // Tarifa vigente por cama de esta habitación — referencia para
+  // validar los cobros al hacer check-in (hoy el costo se escribe a
+  // mano en cada registro, lo que produce montos inconsistentes para
+  // la misma cama). Nullable: el catálogo empieza vacío/sin tarifa
+  // fijada, y capturar un check-in no debe bloquearse por eso.
+  @Column('decimal', { nullable: true })
+  costoPorCama: number;
+
   @OneToMany(() => Registro, (registro) => registro.habitacion)
   registros: Registro[];
 }

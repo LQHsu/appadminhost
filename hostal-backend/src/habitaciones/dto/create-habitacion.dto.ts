@@ -1,4 +1,4 @@
-import { IsInt, IsPositive, IsString } from 'class-validator';
+import { IsInt, IsNumber, IsOptional, IsPositive, IsString } from 'class-validator';
 
 export class CreateHabitacionDto {
   @IsInt()
@@ -11,4 +11,9 @@ export class CreateHabitacionDto {
   @IsInt()
   @IsPositive()
   camasTotales: number;
+
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  costoPorCama?: number;
 }

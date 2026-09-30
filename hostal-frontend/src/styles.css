@@ -22,12 +22,22 @@
    `.reporte-diario-print`, sus descendientes, Y sus ancestros
    (:has(...) — deben "existir" aunque vacíos de su propio contenido,
    para que ese descendiente pueda dibujarse). */
+/* La tabla del corte de caja ahora tiene tantas columnas como el
+   historial (canal de venta, comentario, documento, etc.) — en
+   vertical no entraría en el ancho de una hoja. */
+@page {
+  size: landscape;
+}
+
 @media print {
   body :not(.reporte-diario-print, .reporte-diario-print *, :has(.reporte-diario-print)) {
     display: none !important;
   }
   .reporte-diario-print {
     box-shadow: none !important;
+  }
+  .reporte-diario-print table {
+    font-size: 0.65rem;
   }
   .no-imprimir,
   .oculto-en-impresion {

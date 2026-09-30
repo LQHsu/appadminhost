@@ -14,6 +14,11 @@
       <label class="block text-sm font-medium text-slate-600 mb-1">Camas totales</label>
       <input formControlName="camasTotales" type="number" min="1" class="w-24 rounded border-slate-300" />
     </div>
+    <div>
+      <label class="block text-sm font-medium text-slate-600 mb-1">Tarifa por cama</label>
+      <input formControlName="costoPorCama" type="number" min="0" step="0.01" placeholder="Opcional"
+             class="w-28 rounded border-slate-300" />
+    </div>
     <button type="submit" class="px-4 py-2 rounded bg-sky-600 text-white text-sm font-medium hover:bg-sky-700">
       Agregar habitación
     </button>
@@ -35,6 +40,10 @@
             <div>
               <label class="block text-xs text-slate-500 mb-1">Camas</label>
               <input formControlName="camasTotales" type="number" min="1" class="w-20 rounded border-slate-300 text-sm" />
+            </div>
+            <div>
+              <label class="block text-xs text-slate-500 mb-1">Tarifa/cama</label>
+              <input formControlName="costoPorCama" type="number" min="0" step="0.01" class="w-24 rounded border-slate-300 text-sm" />
             </div>
           </div>
           @if (errorEdicion()) {
@@ -69,6 +78,9 @@
           <p class="text-xs text-slate-500">Piso {{ h.piso }}</p>
           <p class="font-semibold text-slate-800">Hab. {{ h.numero }}</p>
           <p class="text-sm text-slate-500">{{ h.camasTotales }} camas</p>
+          <p class="text-sm text-slate-500">
+            Tarifa: {{ h.costoPorCama ? (h.costoPorCama | currency: 'MXN') + '/cama' : 'sin fijar' }}
+          </p>
         </div>
       }
     } @empty {

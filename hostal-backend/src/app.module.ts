@@ -7,6 +7,8 @@ import { RegistrosModule } from './registros/registros.module';
 import { HistorialModule } from './historial/historial.module';
 import { CanalesVentaModule } from './canales-venta/canales-venta.module';
 import { ConceptosExtraModule } from './conceptos-extra/conceptos-extra.module';
+import { CorteCajaModule } from './corte-caja/corte-caja.module';
+import { AcuseRecepcionModule } from './acuse-recepcion/acuse-recepcion.module';
 import { ENTIDADES } from './database.entities';
 
 // Dos modos, elegidos según exista o no DATABASE_URL:
@@ -42,6 +44,8 @@ import { ENTIDADES } from './database.entities';
     HistorialModule,
     CanalesVentaModule,
     ConceptosExtraModule,
+    CorteCajaModule,
+    AcuseRecepcionModule,
   ],
   controllers: [AppController],
   providers: [AppService],
