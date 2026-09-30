@@ -68,6 +68,7 @@ export interface UpdateHistorialDto {
   fechaEvento?: string;
   totalCobrado?: number;
   pagos?: PagoLineaEdicion[];
+  canalVentaId?: number;
 }
 
 export interface ReporteMensual {

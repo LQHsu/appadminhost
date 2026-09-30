@@ -218,6 +218,22 @@
         </div>
 
         <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Canal de venta</label>
+          <select
+            [ngModel]="canalVentaIdEdit()"
+            (ngModelChange)="canalVentaIdEdit.set($event)"
+            class="w-full rounded border-slate-300 text-sm"
+          >
+            <option [ngValue]="0">
+              {{ h.canalVentaNombre ? 'Sin cambiar (' + h.canalVentaNombre + ')' : 'Sin especificar' }}
+            </option>
+            @for (c of canalVentaService.canales(); track c.id) {
+              <option [ngValue]="c.id">{{ c.nombre }}{{ c.activo ? '' : ' (inactivo)' }}</option>
+            }
+          </select>
+        </div>
+
+        <div>
           <label class="block text-xs font-medium text-slate-600 mb-1">Monto total</label>
           <input
             type="number"

@@ -2,6 +2,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HistorialService } from '../../core/services/historial.service';
+import { CanalVentaService } from '../../core/services/canal-venta.service';
 import { Historial, TipoEvento } from '../../core/models/historial.model';
 import { ReporteAnual } from '../reporte-anual/reporte-anual';
 import { ReporteDiario } from '../reporte-diario/reporte-diario';
@@ -26,6 +27,7 @@ import { aInputDatetimeLocal } from '../../shared/date-utils';
 })
 export class HistorialComponent implements OnInit {
   historialService = inject(HistorialService);
+  canalVentaService = inject(CanalVentaService);
 
   hoy = new Date();
   anio = signal(this.hoy.getFullYear());
@@ -39,6 +41,13 @@ export class HistorialComponent implements OnInit {
   fechaEventoEdit = signal('');
   totalCobradoEdit = signal(0);
   pagosEdit = signal<LineaCobro[]>([]);
+  // 0 = "no cambiar el canal de venta actual" — mismo sentinel que usa
+  // el check-in. Historial solo guarda el NOMBRE del canal (foto al
+  // momento del evento, no una relación viva), así que al abrir el
+  // modal se intenta encontrar el canal del catálogo con ese mismo
+  // nombre para preseleccionarlo; si no hay coincidencia (canal
+  // renombrado/borrado, o dato de antes del catálogo), queda en 0.
+  canalVentaIdEdit = signal(0);
   claveEdicion = signal('');
   errorEdicion = signal('');
   enviandoEdicion = signal(false);
@@ -54,6 +63,7 @@ export class HistorialComponent implements OnInit {
   ngOnInit() {
     this.historialService.cargarHistorial();
     this.consultarReporte();
+    this.canalVentaService.cargarCanales();
   }
 
   consultarReporte() {
@@ -126,6 +136,8 @@ export class HistorialComponent implements OnInit {
         ? h.pagos.map((p) => ({ metodoPago: p.metodoPago, cantidad: p.cantidad, nota: p.nota ?? undefined }))
         : [{ metodoPago: h.metodoPago, cantidad: h.totalCobrado }],
     );
+    const canalActual = this.canalVentaService.canales().find((c) => c.nombre === h.canalVentaNombre);
+    this.canalVentaIdEdit.set(canalActual?.id ?? 0);
     this.claveEdicion.set('');
     this.errorEdicion.set('');
     this.edicionPendiente.set(h);
@@ -162,6 +174,7 @@ export class HistorialComponent implements OnInit {
           fechaEvento: new Date(this.fechaEventoEdit()).toISOString(),
           totalCobrado: total,
           pagos,
+          canalVentaId: this.canalVentaIdEdit() > 0 ? this.canalVentaIdEdit() : undefined,
         },
         this.claveEdicion(),
       )

@@ -4,6 +4,7 @@ import { Between, DataSource, In, MoreThan, Repository } from 'typeorm';
 import { Historial, TipoEvento } from './entities/historial.entity';
 import { Ingreso, ConceptoIngreso } from './entities/ingreso.entity';
 import { Registro } from '../registros/entities/registro.entity';
+import { CanalVenta } from '../canales-venta/entities/canal-venta.entity';
 import { UpdateHistorialDto } from './dto/update-historial.dto';
 import { medianocheHostal, fechaYMDHostal } from '../common/zona-horaria';
 
@@ -58,6 +59,15 @@ export class HistorialService {
       if (dto.nombreCliente !== undefined) historial.nombreCliente = dto.nombreCliente;
       if (dto.fechaEvento !== undefined) historial.fechaEvento = new Date(dto.fechaEvento);
       if (dto.totalCobrado !== undefined) historial.totalCobrado = dto.totalCobrado;
+
+      // Solo corrige el snapshot de ESTA fila — no toca Registro.canalVenta
+      // ni las demás filas de la misma estadía (mismo criterio que
+      // nombreCliente/fechaEvento arriba).
+      if (dto.canalVentaId !== undefined) {
+        const canal = await manager.findOne(CanalVenta, { where: { id: dto.canalVentaId } });
+        if (!canal) throw new BadRequestException(`Canal de venta ${dto.canalVentaId} no encontrado`);
+        historial.canalVentaNombre = canal.nombre;
+      }
 
       if (dto.pagos && dto.pagos.length > 0) {
         // Se reemplaza TODO el desglose. `concepto` es solo informativo

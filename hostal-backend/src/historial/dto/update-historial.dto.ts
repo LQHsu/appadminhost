@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { ArrayMinSize, IsArray, IsISO8601, IsNumber, IsOptional, IsPositive, IsString, ValidateNested } from 'class-validator';
+import { ArrayMinSize, IsArray, IsISO8601, IsInt, IsNumber, IsOptional, IsPositive, IsString, ValidateNested } from 'class-validator';
 import { PagoLineaHistorialDto } from './pago-linea-historial.dto';
 
 // Corrección de una fila ya guardada del historial: el personal se
@@ -29,4 +29,11 @@ export class UpdateHistorialDto {
   @ValidateNested({ each: true })
   @Type(() => PagoLineaHistorialDto)
   pagos?: PagoLineaHistorialDto[];
+
+  // Corrige el canal de venta de ESTA fila (el snapshot guardado en
+  // canalVentaNombre) — no toca el Registro ni las demás filas de la
+  // misma estadía, igual que nombreCliente/fechaEvento.
+  @IsOptional()
+  @IsInt()
+  canalVentaId?: number;
 }
