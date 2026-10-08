@@ -255,14 +255,16 @@ export class ReporteDiario implements OnInit {
   }
 
   // Misma lógica que historial.ts: arma texto legible a partir de las
-  // líneas de Ingreso que NO son el cobro normal de hospedaje (cobros
-  // extra, multa), usando el concepto del catálogo si se usó, o la
-  // nota libre si no.
+  // líneas que tengan algo que mostrar — cobros extra/multa (con
+  // concepto/unidades/nota) o una línea de hospedaje con nota (al
+  // editarla se puede agregar una nota aunque sea un check-in/
+  // renovación; antes se guardaba pero esta columna la descartaba).
   comentarioExtra(f: Historial): string[] {
     if (!f.pagos) return [];
     return f.pagos
-      .filter((p) => p.concepto !== 'HOSPEDAJE')
+      .filter((p) => p.concepto !== 'HOSPEDAJE' || p.nota)
       .map((p) => {
+        if (p.concepto === 'HOSPEDAJE') return p.nota!;
         const etiqueta = p.conceptoExtraNombre ?? (p.concepto === 'MULTA' ? 'Multa' : 'Cobro extra');
         const unidades = p.unidades ? ` x${p.unidades}` : '';
         const nota = p.nota ? `: ${p.nota}` : '';

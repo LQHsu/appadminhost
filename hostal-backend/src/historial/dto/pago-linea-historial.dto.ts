@@ -1,4 +1,4 @@
-import { IsEnum, IsInt, IsNumber, IsOptional, IsPositive, IsString } from 'class-validator';
+import { IsEnum, IsInt, IsNumber, IsOptional, IsPositive, IsString, Min } from 'class-validator';
 import { MetodoPago } from '../../registros/entities/registro.entity';
 
 // Una línea del desglose de pago al editar una fila de historial:
@@ -15,8 +15,10 @@ export class PagoLineaHistorialDto {
   @IsEnum(MetodoPago)
   metodoPago: MetodoPago;
 
+  // Min(0), no IsPositive(): un checkout sin cargo extra edita una
+  // línea en $0 (mismo criterio que UpdateHistorialDto.totalCobrado).
   @IsNumber()
-  @IsPositive()
+  @Min(0)
   cantidad: number;
 
   @IsOptional()

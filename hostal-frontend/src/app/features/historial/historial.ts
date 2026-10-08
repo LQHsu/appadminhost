@@ -100,14 +100,18 @@ export class HistorialComponent implements OnInit {
   }
 
   // Columna "Comentario": arma texto legible a partir de las líneas de
-  // Ingreso que NO son el cobro normal de hospedaje (cobros extra,
-  // multa), reusando su nota si tiene una. No es un campo nuevo — solo
-  // presenta lo que ya se capturó en cada cobro extra/multa.
+  // Ingreso que tengan algo que mostrar — cobros extra/multa (con su
+  // concepto/unidades/nota) O una línea de hospedaje normal a la que
+  // le hayan puesto una nota al editarla (antes se perdía: se guardaba
+  // bien en la base, pero esta columna la descartaba por ser
+  // HOSPEDAJE). En hospedaje no tiene sentido el concepto del catálogo
+  // ni las unidades, así que ahí solo se muestra la nota tal cual.
   comentarioExtra(h: Historial): string[] {
     if (!h.pagos) return [];
     return h.pagos
-      .filter((p) => p.concepto !== 'HOSPEDAJE')
+      .filter((p) => p.concepto !== 'HOSPEDAJE' || p.nota)
       .map((p) => {
+        if (p.concepto === 'HOSPEDAJE') return p.nota!;
         // Si se usó el catálogo, "Toallas x2" es más claro que la
         // etiqueta genérica — si no, cae de regreso a "Cobro extra"/
         // "Multa" + la nota libre, como antes.

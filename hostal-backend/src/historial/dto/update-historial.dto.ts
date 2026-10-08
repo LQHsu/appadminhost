@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { ArrayMinSize, IsArray, IsISO8601, IsInt, IsNumber, IsOptional, IsPositive, IsString, ValidateNested } from 'class-validator';
+import { ArrayMinSize, IsArray, IsISO8601, IsInt, IsNumber, IsOptional, IsString, Min, ValidateNested } from 'class-validator';
 import { PagoLineaHistorialDto } from './pago-linea-historial.dto';
 
 // Corrección de una fila ya guardada del historial: el personal se
@@ -15,9 +15,12 @@ export class UpdateHistorialDto {
   @IsISO8601()
   fechaEvento?: string;
 
+  // Min(0), no IsPositive(): un checkout sin ningún cargo extra queda
+  // legítimamente en $0 (el caso normal) — editar esa fila (ej. para
+  // corregir el nombre) no debe rechazarse solo porque el monto es 0.
   @IsOptional()
   @IsNumber()
-  @IsPositive()
+  @Min(0)
   totalCobrado?: number;
 
   // Si se manda, reemplaza TODO el desglose de pagos de esta fila (no
