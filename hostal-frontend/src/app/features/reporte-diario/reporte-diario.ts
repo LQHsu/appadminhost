@@ -244,16 +244,6 @@ export class ReporteDiario implements OnInit {
     return [f.metodoPago];
   }
 
-  // Para el Excel sí interesa el monto por método (permite sumar por
-  // columna en la hoja de cálculo) — a diferencia de la tabla
-  // impresa/pantalla, aquí no es redundante con nada.
-  private desglosePagosConMonto(f: Historial): string[] {
-    if (f.pagos && f.pagos.length > 0) {
-      return f.pagos.map((p) => `${p.metodoPago}: $${p.cantidad}`);
-    }
-    return [f.metodoPago];
-  }
-
   // Misma lógica que historial.ts: arma texto legible a partir de las
   // líneas que tengan algo que mostrar — cobros extra/multa (con
   // concepto/unidades/nota) o una línea de hospedaje con nota (al
@@ -303,25 +293,82 @@ export class ReporteDiario implements OnInit {
     const r = this.historialService.reporteDiario();
     if (!r) return;
 
-    const filas = r.filas.map((f) => ({
-      'N° reserva': f.registroOriginalId,
-      Evento: this.etiquetaTipo(f.tipo),
-      Cliente: f.nombreCliente,
-      Habitación: `P${f.piso} - ${f.habitacionNumero}`,
-      Camas: f.camas,
-      Fecha: new Date(f.fechaEvento).toLocaleString('es-MX'),
-      'Check-in': new Date(f.checkIn).toLocaleString('es-MX'),
-      'Check-out': f.checkOut ? new Date(f.checkOut).toLocaleString('es-MX') : '',
-      Total: Number(f.totalCobrado),
-      'Costo por cama': Number(f.costoPorCama),
-      'Otro cobro': Number(f.otroCobro),
-      Noches: f.noches,
-      'Documento de identidad': f.documentoIdentidad,
-      'Método de pago': this.desglosePagosConMonto(f).join(' | '),
-      Atendió: f.atendio,
-      'Canal de venta': f.canalVentaNombre ?? '',
-      Comentario: this.comentarioExtra(f).join(' | '),
-    }));
+    // Una fila por RESERVACIÓN, no por movimiento — se agrupan todos
+    // los eventos de una misma estadía (check-in, renovaciones, cobros
+    // extra, checkout) por registroOriginalId. Ya no hace falta la
+    // columna "Evento" porque cada reserva es una sola fila.
+    const porReserva = new Map<number, Historial[]>();
+    for (const f of r.filas) {
+      const lista = porReserva.get(f.registroOriginalId) ?? [];
+      lista.push(f);
+      porReserva.set(f.registroOriginalId, lista);
+    }
+
+    const filas = Array.from(porReserva.values()).map((eventos) => {
+      // El id más chico de la estadía es siempre el CHECK_IN — de ahí
+      // salen los datos que no cambian entre eventos (cliente,
+      // habitación, documento, canal, costo por cama).
+      const base = [...eventos].sort((a, b) => a.id - b.id)[0];
+      const checkoutEvento = eventos.find((f) => f.tipo === 'CHECKOUT');
+
+      // Un checkout que no cobró nada (el caso normal) no debe
+      // aparecer como su propia fila ni sumar al total — pero sí se
+      // recupera su fecha de checkout más abajo, aunque no haya cobrado.
+      const eventosConCobro = eventos.filter(
+        (f) => !(f.tipo === 'CHECKOUT' && Number(f.totalCobrado) === 0),
+      );
+
+      const total = eventosConCobro.reduce((s, f) => s + Number(f.totalCobrado), 0);
+      const otroCobro = eventosConCobro.reduce((s, f) => s + Number(f.otroCobro), 0);
+
+      // Noches: solo CHECK_IN/RENOVACION representan noches NUEVAS: en
+      // COBRO_EXTRA/CHECKOUT ese campo es una foto del acumulado de la
+      // estadía en ese momento, no un incremento — sumarlo ahí
+      // duplicaría las noches ya contadas en el check-in/renovaciones.
+      const noches = eventos
+        .filter((f) => f.tipo === 'CHECK_IN' || f.tipo === 'RENOVACION')
+        .reduce((s, f) => s + f.noches, 0);
+
+      // Monto por método sumado a lo largo de TODA la reserva (no solo
+      // un evento) — así "EFECTIVO: $200 | TARJETA: $50" refleja el
+      // total real de esa reservación, no solo de un movimiento suyo.
+      const montosPorMetodo = new Map<string, number>();
+      for (const f of eventosConCobro) {
+        const pagos =
+          f.pagos && f.pagos.length > 0
+            ? f.pagos
+            : [{ metodoPago: f.metodoPago, cantidad: Number(f.totalCobrado) }];
+        for (const p of pagos) {
+          montosPorMetodo.set(p.metodoPago, (montosPorMetodo.get(p.metodoPago) ?? 0) + Number(p.cantidad));
+        }
+      }
+      const metodoPago = Array.from(montosPorMetodo.entries())
+        .map(([metodo, monto]) => `${metodo}: $${monto}`)
+        .join(' | ');
+
+      const atendieron = [...new Set(eventos.map((f) => f.atendio))];
+      // Se revisan TODOS los eventos (incluido un checkout en $0): si
+      // alguien le agregó una nota al editarlo, no se pierde.
+      const comentario = eventos.flatMap((f) => this.comentarioExtra(f));
+
+      return {
+        'N° reserva': base.registroOriginalId,
+        Cliente: base.nombreCliente,
+        Habitación: `P${base.piso} - ${base.habitacionNumero}`,
+        Camas: base.camas,
+        'Check-in': new Date(base.checkIn).toLocaleString('es-MX'),
+        'Check-out': checkoutEvento?.checkOut ? new Date(checkoutEvento.checkOut).toLocaleString('es-MX') : '',
+        Total: total,
+        'Costo por cama': Number(base.costoPorCama),
+        'Otro cobro': otroCobro,
+        Noches: noches,
+        'Documento de identidad': base.documentoIdentidad,
+        'Método de pago': metodoPago,
+        Atendió: atendieron.join(', '),
+        'Canal de venta': base.canalVentaNombre ?? '',
+        Comentario: comentario.join(' | '),
+      };
+    });
 
     const resumen = [
       { Concepto: 'Ingresos totales', Monto: r.resumen.totalIngresos },
@@ -331,7 +378,7 @@ export class ReporteDiario implements OnInit {
     ];
 
     const libro = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(libro, XLSX.utils.json_to_sheet(filas), 'Movimientos');
+    XLSX.utils.book_append_sheet(libro, XLSX.utils.json_to_sheet(filas), 'Reservaciones');
     XLSX.utils.book_append_sheet(libro, XLSX.utils.json_to_sheet(resumen), 'Resumen');
     XLSX.writeFile(libro, `corte-de-caja_${this.desde()}_a_${this.hasta()}.xlsx`);
   }
