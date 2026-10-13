@@ -29,4 +29,11 @@ export class PagoLineaHistorialDto {
   @IsInt()
   @IsPositive()
   unidades?: number;
+
+  // Solo aplica a líneas TARJETA: lo que depositó el procesador de
+  // pagos ya con su comisión descontada.
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  montoNeto?: number;
 }

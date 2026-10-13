@@ -16,6 +16,10 @@ export interface PagoHistorial {
   // nota libre.
   conceptoExtraNombre: string | null;
   unidades: number | null;
+  // Solo tiene valor cuando metodoPago = TARJETA y alguien lo capturó
+  // al editar la fila: lo que depositó el procesador de pagos ya con
+  // su comisión descontada.
+  montoNeto: number | null;
 }
 
 export interface Historial {
@@ -68,6 +72,7 @@ export interface PagoLineaEdicion {
   nota?: string;
   conceptoExtraId?: number;
   unidades?: number;
+  montoNeto?: number;
 }
 
 export interface UpdateHistorialDto {

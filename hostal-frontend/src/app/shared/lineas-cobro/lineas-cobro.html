@@ -56,6 +56,18 @@
         <span class="text-sm text-slate-700 w-24 text-right">{{ totalObjetivo() | currency: 'MXN' }}</span>
       }
 
+      @if (mostrarMontoNeto() && linea.metodoPago === 'TARJETA') {
+        <input
+          type="number"
+          min="0"
+          step="0.01"
+          placeholder="Monto neto (tras comisión)"
+          [ngModel]="linea.montoNeto ?? ''"
+          (ngModelChange)="actualizarMontoNeto($index, $event)"
+          class="w-36 rounded border-slate-300 text-sm"
+        />
+      }
+
       @if (lineas().length > 1 || totalObjetivo() === undefined) {
         <button
           type="button"

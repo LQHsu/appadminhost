@@ -1,4 +1,4 @@
-import { IsEnum, IsNumber, IsPositive } from 'class-validator';
+import { IsEnum, IsNumber, IsOptional, IsPositive, IsString } from 'class-validator';
 import { MetodoPago } from '../entities/registro.entity';
 
 // Una línea de pago: cuánto y con qué método. Un mismo cobro (check-in,
@@ -11,4 +11,8 @@ export class PagoDto {
   @IsNumber()
   @IsPositive()
   cantidad: number;
+
+  @IsOptional()
+  @IsString()
+  nota?: string;
 }

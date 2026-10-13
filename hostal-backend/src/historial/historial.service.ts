@@ -95,6 +95,7 @@ export class HistorialService {
               nota: pago.nota,
               conceptoExtraNombre: conceptoExtra?.nombre,
               unidades: pago.unidades,
+              montoNeto: pago.montoNeto,
               fecha: historial.fechaEvento,
             }),
           );
@@ -242,6 +243,7 @@ export class HistorialService {
       nota: i.nota,
       conceptoExtraNombre: i.conceptoExtraNombre,
       unidades: i.unidades,
+      montoNeto: i.montoNeto !== null && i.montoNeto !== undefined ? Number(i.montoNeto) : null,
     }));
     return { ...fila, pagos };
   }

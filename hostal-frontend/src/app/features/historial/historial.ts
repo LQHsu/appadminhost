@@ -158,6 +158,7 @@ export class HistorialComponent implements OnInit {
               .conceptos()
               .find((c) => c.nombre === p.conceptoExtraNombre)?.id,
             unidades: p.unidades ?? undefined,
+            montoNeto: p.montoNeto ?? undefined,
           }))
         : [{ metodoPago: h.metodoPago, cantidad: h.totalCobrado }],
     );

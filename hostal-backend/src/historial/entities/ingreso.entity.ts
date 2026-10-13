@@ -68,4 +68,12 @@ export class Ingreso {
 
   @Column({ nullable: true })
   unidades: number;
+
+  // Solo tiene sentido cuando metodoPago = TARJETA: lo que el
+  // procesador de pagos realmente deposita, ya con su comisión
+  // descontada de `cantidad` (el monto bruto cobrado al huésped). Se
+  // captura a mano al editar la fila, cuando llega el estado de cuenta
+  // — no se calcula solo, nadie sabe la comisión exacta de antemano.
+  @Column('decimal', { nullable: true })
+  montoNeto: number;
 }

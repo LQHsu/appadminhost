@@ -12,6 +12,10 @@ export interface LineaCobro {
   // `mostrarConcepto`), no para el pago normal de hospedaje.
   conceptoExtraId?: number;
   unidades?: number;
+  // Solo tiene sentido cuando metodoPago = TARJETA (ver
+  // `mostrarMontoNeto`): lo que depositó el procesador de pagos ya con
+  // su comisión descontada.
+  montoNeto?: number;
 }
 
 // Si se pasa `totalObjetivo`, la lista tiene que sumar exacto ese
@@ -44,6 +48,10 @@ export class LineasCobro implements OnInit {
   // normal de hospedaje (check-in/renovar) — agrega un selector del
   // catálogo de conceptos y un campo de unidades por línea.
   mostrarConcepto = input(false);
+  // Solo aplica al editar un cobro ya hecho con tarjeta — captura lo
+  // que el procesador de pagos depositó después de su comisión. No
+  // aplica a check-in/renovar/cobro-extra (ahí todavía no se sabe).
+  mostrarMontoNeto = input(false);
   etiquetaAgregar = input('+ Agregar otro método');
 
   ngOnInit() {
@@ -91,5 +99,11 @@ export class LineasCobro implements OnInit {
 
   actualizarUnidades(index: number, unidades: number) {
     this.lineasChange.emit(this.lineas().map((l, i) => (i === index ? { ...l, unidades: unidades || undefined } : l)));
+  }
+
+  actualizarMontoNeto(index: number, montoNeto: number) {
+    this.lineasChange.emit(
+      this.lineas().map((l, i) => (i === index ? { ...l, montoNeto: montoNeto || undefined } : l)),
+    );
   }
 }
