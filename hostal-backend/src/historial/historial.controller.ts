@@ -15,6 +15,8 @@ import { HistorialService } from './historial.service';
 import { UpdateHistorialDto } from './dto/update-historial.dto';
 import { EditPasswordGuard } from '../common/edit-password.guard';
 import { medianocheHostal, UN_DIA_MS } from '../common/zona-horaria';
+import { MetodoPago } from '../registros/entities/registro.entity';
+import { TipoEvento } from './entities/historial.entity';
 
 @Controller('historial')
 export class HistorialController {
@@ -22,12 +24,18 @@ export class HistorialController {
 
   // Paginado, más reciente primero: page=1 (default) trae los primeros
   // `limit` movimientos (default 20), page=2 los siguientes, etc.
+  // metodoPago/tipo/cliente son filtros opcionales — se aplican ANTES
+  // de paginar, para que la página 1 filtrada no deje fuera resultados
+  // que estaban en otra página del listado sin filtrar.
   @Get()
   findAll(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @Query('metodoPago') metodoPago?: MetodoPago,
+    @Query('tipo') tipo?: TipoEvento,
+    @Query('cliente') cliente?: string,
   ) {
-    return this.historialService.findAll(page, limit);
+    return this.historialService.findAll(page, limit, { metodoPago, tipo, cliente });
   }
 
   // Corrige una fila ya guardada (monto, pago, nombre, fecha) — pedida

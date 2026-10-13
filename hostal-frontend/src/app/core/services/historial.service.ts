@@ -1,7 +1,15 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { API_URL } from '../config/api.config';
-import { Historial, ReporteAnual, ReporteRango, ReporteMensual, UpdateHistorialDto } from '../models/historial.model';
+import {
+  Historial,
+  ReporteAnual,
+  ReporteRango,
+  ReporteMensual,
+  UpdateHistorialDto,
+  TipoEvento,
+} from '../models/historial.model';
+import { MetodoPago } from '../models/registro.model';
 
 interface PaginaHistorial {
   data: Historial[];
@@ -21,20 +29,33 @@ export class HistorialService {
   historialPage = signal(1);
   historialTotalPaginas = computed(() => Math.max(1, Math.ceil(this.historialTotal() / this.historialLimit)));
 
+  // Filtros del listado — viven aquí (no en el componente) por el
+  // mismo motivo que historialPage: así "cargarHistorial()" sin
+  // argumentos, llamado después de editar/eliminar una fila, los
+  // vuelve a aplicar solo en vez de perderlos.
+  historialFiltroMetodoPago = signal<MetodoPago | ''>('');
+  historialFiltroTipo = signal<TipoEvento | ''>('');
+  historialFiltroCliente = signal('');
+
   reporte = signal<ReporteMensual | null>(null);
   reporteAnual = signal<ReporteAnual | null>(null);
   reporteDiario = signal<ReporteRango | null>(null);
 
   // Sin argumento, recarga la página actual (ej. después de editar o
-  // eliminar una fila, para no perder el lugar en el que se estaba).
+  // eliminar una fila, para no perder el lugar en el que se estaba) —
+  // los filtros se aplican ANTES de paginar en el backend, así la
+  // página 1 filtrada no deja fuera resultados de páginas no filtradas.
   cargarHistorial(page = this.historialPage()) {
-    this.http
-      .get<PaginaHistorial>(`${API_URL}/historial`, { params: { page, limit: this.historialLimit } })
-      .subscribe((res) => {
-        this.historial.set(res.data);
-        this.historialTotal.set(res.total);
-        this.historialPage.set(res.page);
-      });
+    const params: Record<string, string | number> = { page, limit: this.historialLimit };
+    if (this.historialFiltroMetodoPago()) params['metodoPago'] = this.historialFiltroMetodoPago();
+    if (this.historialFiltroTipo()) params['tipo'] = this.historialFiltroTipo();
+    if (this.historialFiltroCliente()) params['cliente'] = this.historialFiltroCliente();
+
+    this.http.get<PaginaHistorial>(`${API_URL}/historial`, { params }).subscribe((res) => {
+      this.historial.set(res.data);
+      this.historialTotal.set(res.total);
+      this.historialPage.set(res.page);
+    });
   }
 
   cargarReporteMensual(anio: number, mes: number) {

@@ -16,6 +16,19 @@ function hoyIso(): string {
   return `${hoy.getFullYear()}-${mes}-${dia}`;
 }
 
+// Mismo criterio que common/zona-horaria.ts del backend: el hostal usa
+// hora de Ciudad de México fija (UTC-6, sin horario de verano desde
+// 2022), pero fechaEvento llega en UTC — hay que restar 6 horas antes
+// de leer el día, o un movimiento cerca de la medianoche queda en el
+// día del servidor, no en el del hostal.
+function fechaYMDHostal(fecha: Date): string {
+  const hostal = new Date(fecha.getTime() - 6 * 60 * 60 * 1000);
+  const anio = hostal.getUTCFullYear();
+  const mes = String(hostal.getUTCMonth() + 1).padStart(2, '0');
+  const dia = String(hostal.getUTCDate()).padStart(2, '0');
+  return `${anio}-${mes}-${dia}`;
+}
+
 // Denominaciones vigentes de pesos mexicanos. Es una lista fija en
 // código (no un catálogo editable como canal de venta/concepto extra)
 // porque cambia por decisión de Banxico, no por el hostal.
@@ -295,6 +308,81 @@ export class ReporteDiario implements OnInit {
     document.title = tituloOriginal;
   }
 
+  // Arma una fila consolidada a partir de los eventos de UNA reserva
+  // dentro de UN mismo día (ver exportarExcel) — el mismo cálculo que
+  // antes se hacía sobre toda la reserva, ahora acotado a ese día.
+  private filaDeReserva(eventos: Historial[]) {
+    // El id más chico es siempre el evento más viejo DE ESE DÍA — de
+    // ahí salen los datos que no cambian entre eventos (cliente,
+    // habitación, documento, canal, costo por cama).
+    const base = [...eventos].sort((a, b) => a.id - b.id)[0];
+    const checkoutEvento = eventos.find((f) => f.tipo === 'CHECKOUT');
+
+    // Un checkout que no cobró nada (el caso normal) no debe aparecer
+    // como su propia fila ni sumar al total — pero sí se recupera su
+    // fecha de checkout más abajo, aunque no haya cobrado.
+    const eventosConCobro = eventos.filter((f) => !(f.tipo === 'CHECKOUT' && Number(f.totalCobrado) === 0));
+
+    const total = eventosConCobro.reduce((s, f) => s + Number(f.totalCobrado), 0);
+    const otroCobro = eventosConCobro.reduce((s, f) => s + Number(f.otroCobro), 0);
+
+    // Noches: solo CHECK_IN/RENOVACION representan noches NUEVAS: en
+    // COBRO_EXTRA/CHECKOUT ese campo es una foto del acumulado de la
+    // estadía en ese momento, no un incremento — sumarlo ahí
+    // duplicaría las noches ya contadas en el check-in/renovaciones.
+    const noches = eventos
+      .filter((f) => f.tipo === 'CHECK_IN' || f.tipo === 'RENOVACION')
+      .reduce((s, f) => s + f.noches, 0);
+
+    // Monto por método sumado entre los eventos de esta reserva EN
+    // ESTE día — así "EFECTIVO: $200 | TARJETA: $50" refleja lo que
+    // entró ese día por esa reserva, no toda su estadía completa.
+    const montosPorMetodo = new Map<string, number>();
+    // Suma el monto neto (ya con la comisión descontada) de las líneas
+    // TARJETA de ese día — null mientras nadie lo haya capturado al
+    // editar, para no confundirlo con "neto = $0".
+    let netoTarjeta: number | null = null;
+    for (const f of eventosConCobro) {
+      const pagos =
+        f.pagos && f.pagos.length > 0
+          ? f.pagos
+          : [{ metodoPago: f.metodoPago, cantidad: Number(f.totalCobrado), montoNeto: null }];
+      for (const p of pagos) {
+        montosPorMetodo.set(p.metodoPago, (montosPorMetodo.get(p.metodoPago) ?? 0) + Number(p.cantidad));
+        if (p.metodoPago === 'TARJETA' && p.montoNeto !== null && p.montoNeto !== undefined) {
+          netoTarjeta = (netoTarjeta ?? 0) + Number(p.montoNeto);
+        }
+      }
+    }
+    const metodoPago = Array.from(montosPorMetodo.entries())
+      .map(([metodo, monto]) => `${metodo}: $${monto}`)
+      .join(' | ');
+
+    const atendieron = [...new Set(eventos.map((f) => f.atendio))];
+    // Se revisan TODOS los eventos (incluido un checkout en $0): si
+    // alguien le agregó una nota al editarlo, no se pierde.
+    const comentario = eventos.flatMap((f) => this.comentarioExtra(f));
+
+    return {
+      'N° reserva': base.registroOriginalId,
+      Cliente: base.nombreCliente,
+      Habitación: `P${base.piso} - ${base.habitacionNumero}`,
+      Camas: base.camas,
+      'Check-in': new Date(base.checkIn).toLocaleString('es-MX'),
+      'Check-out': checkoutEvento?.checkOut ? new Date(checkoutEvento.checkOut).toLocaleString('es-MX') : '',
+      Total: total,
+      'Costo por cama': Number(base.costoPorCama),
+      'Otro cobro': otroCobro,
+      Noches: noches,
+      'Documento de identidad': base.documentoIdentidad,
+      'Método de pago': metodoPago,
+      'Neto tarjeta': netoTarjeta !== null ? netoTarjeta : '',
+      Atendió: atendieron.join(', '),
+      'Canal de venta': base.canalVentaNombre ?? '',
+      Comentario: comentario.join(' | '),
+    };
+  }
+
   // "Exportar a Excel" = las mismas filas/columnas que ya se ven en
   // pantalla, sin el filtrado cosmético que sí aplica el PDF (ej.
   // checkouts en $0) — aquí es exportar el dato tal cual, no un
@@ -303,90 +391,52 @@ export class ReporteDiario implements OnInit {
     const r = this.historialService.reporteDiario();
     if (!r) return;
 
-    // Una fila por RESERVACIÓN, no por movimiento — se agrupan todos
-    // los eventos de una misma estadía (check-in, renovaciones, cobros
-    // extra, checkout) por registroOriginalId. Ya no hace falta la
+    // Primero se separa por DÍA (hora del hostal, no la fecha del
+    // servidor) y dentro de cada día se consolida por reserva — así un
+    // rango de varios días no mezcla en una sola fila cosas que
+    // pasaron en días distintos de la misma estadía (ej. el check-in
+    // del lunes y una renovación del miércoles quedan cada una bajo su
+    // propio día), y dentro de un mismo día ya no hace falta la
     // columna "Evento" porque cada reserva es una sola fila.
-    const porReserva = new Map<number, Historial[]>();
+    const porDia = new Map<string, Historial[]>();
     for (const f of r.filas) {
-      const lista = porReserva.get(f.registroOriginalId) ?? [];
+      const dia = fechaYMDHostal(new Date(f.fechaEvento));
+      const lista = porDia.get(dia) ?? [];
       lista.push(f);
-      porReserva.set(f.registroOriginalId, lista);
+      porDia.set(dia, lista);
     }
 
-    const filas = Array.from(porReserva.values()).map((eventos) => {
-      // El id más chico de la estadía es siempre el CHECK_IN — de ahí
-      // salen los datos que no cambian entre eventos (cliente,
-      // habitación, documento, canal, costo por cama).
-      const base = [...eventos].sort((a, b) => a.id - b.id)[0];
-      const checkoutEvento = eventos.find((f) => f.tipo === 'CHECKOUT');
+    const filas: Record<string, string | number>[] = [];
+    for (const [dia, eventosDelDia] of porDia) {
+      const [anio, mes, diaNum] = dia.split('-').map(Number);
+      const etiquetaDia = new Date(anio, mes - 1, diaNum).toLocaleDateString('es-MX', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      });
+      // "Huéspedes" = check-ins nuevos ese día — mismo criterio que
+      // numeroHuespedes() del backend (una renovación/cobro extra/
+      // checkout no es un huésped nuevo, es la misma estadía siguiendo
+      // su curso).
+      const huespedesDelDia = eventosDelDia.filter((f) => f.tipo === 'CHECK_IN').length;
+      const etiquetaHuespedes = `${huespedesDelDia} huésped${huespedesDelDia === 1 ? '' : 'es'}`;
+      // Header separador: solo la primera columna tiene texto, el
+      // resto queda en blanco — SheetJS (la versión libre que usamos)
+      // no soporta negritas/color de celda, así que esto es lo más
+      // que se puede resaltar sin una librería con estilos.
+      filas.push({ 'N° reserva': `── ${etiquetaDia} — ${etiquetaHuespedes} ──` });
 
-      // Un checkout que no cobró nada (el caso normal) no debe
-      // aparecer como su propia fila ni sumar al total — pero sí se
-      // recupera su fecha de checkout más abajo, aunque no haya cobrado.
-      const eventosConCobro = eventos.filter(
-        (f) => !(f.tipo === 'CHECKOUT' && Number(f.totalCobrado) === 0),
-      );
-
-      const total = eventosConCobro.reduce((s, f) => s + Number(f.totalCobrado), 0);
-      const otroCobro = eventosConCobro.reduce((s, f) => s + Number(f.otroCobro), 0);
-
-      // Noches: solo CHECK_IN/RENOVACION representan noches NUEVAS: en
-      // COBRO_EXTRA/CHECKOUT ese campo es una foto del acumulado de la
-      // estadía en ese momento, no un incremento — sumarlo ahí
-      // duplicaría las noches ya contadas en el check-in/renovaciones.
-      const noches = eventos
-        .filter((f) => f.tipo === 'CHECK_IN' || f.tipo === 'RENOVACION')
-        .reduce((s, f) => s + f.noches, 0);
-
-      // Monto por método sumado a lo largo de TODA la reserva (no solo
-      // un evento) — así "EFECTIVO: $200 | TARJETA: $50" refleja el
-      // total real de esa reservación, no solo de un movimiento suyo.
-      const montosPorMetodo = new Map<string, number>();
-      // Suma el monto neto (ya con la comisión descontada) de todas
-      // las líneas TARJETA de la reserva — null mientras nadie lo haya
-      // capturado al editar, para no confundirlo con "neto = $0".
-      let netoTarjeta: number | null = null;
-      for (const f of eventosConCobro) {
-        const pagos =
-          f.pagos && f.pagos.length > 0
-            ? f.pagos
-            : [{ metodoPago: f.metodoPago, cantidad: Number(f.totalCobrado), montoNeto: null }];
-        for (const p of pagos) {
-          montosPorMetodo.set(p.metodoPago, (montosPorMetodo.get(p.metodoPago) ?? 0) + Number(p.cantidad));
-          if (p.metodoPago === 'TARJETA' && p.montoNeto !== null && p.montoNeto !== undefined) {
-            netoTarjeta = (netoTarjeta ?? 0) + Number(p.montoNeto);
-          }
-        }
+      const porReserva = new Map<number, Historial[]>();
+      for (const f of eventosDelDia) {
+        const lista = porReserva.get(f.registroOriginalId) ?? [];
+        lista.push(f);
+        porReserva.set(f.registroOriginalId, lista);
       }
-      const metodoPago = Array.from(montosPorMetodo.entries())
-        .map(([metodo, monto]) => `${metodo}: $${monto}`)
-        .join(' | ');
-
-      const atendieron = [...new Set(eventos.map((f) => f.atendio))];
-      // Se revisan TODOS los eventos (incluido un checkout en $0): si
-      // alguien le agregó una nota al editarlo, no se pierde.
-      const comentario = eventos.flatMap((f) => this.comentarioExtra(f));
-
-      return {
-        'N° reserva': base.registroOriginalId,
-        Cliente: base.nombreCliente,
-        Habitación: `P${base.piso} - ${base.habitacionNumero}`,
-        Camas: base.camas,
-        'Check-in': new Date(base.checkIn).toLocaleString('es-MX'),
-        'Check-out': checkoutEvento?.checkOut ? new Date(checkoutEvento.checkOut).toLocaleString('es-MX') : '',
-        Total: total,
-        'Costo por cama': Number(base.costoPorCama),
-        'Otro cobro': otroCobro,
-        Noches: noches,
-        'Documento de identidad': base.documentoIdentidad,
-        'Método de pago': metodoPago,
-        'Neto tarjeta': netoTarjeta !== null ? netoTarjeta : '',
-        Atendió: atendieron.join(', '),
-        'Canal de venta': base.canalVentaNombre ?? '',
-        Comentario: comentario.join(' | '),
-      };
-    });
+      for (const eventos of porReserva.values()) {
+        filas.push(this.filaDeReserva(eventos));
+      }
+    }
 
     const resumen = [
       { Concepto: 'Ingresos totales', Monto: r.resumen.totalIngresos },

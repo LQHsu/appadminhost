@@ -35,6 +35,34 @@ export class HistorialComponent implements OnInit {
   anio = signal(this.hoy.getFullYear());
   mes = signal(this.hoy.getMonth() + 1); // getMonth() es 0-indexado
 
+  // --- Filtros de "Historial de ingresos" ---
+
+  // Borrador local del cuadro de búsqueda: no dispara nada hasta que
+  // se confirma (Enter o el botón), para no mandar una petición por
+  // cada tecla.
+  clienteBusqueda = signal('');
+
+  filtroMetodoPagoCambio(valor: string) {
+    this.historialService.historialFiltroMetodoPago.set(valor as 'EFECTIVO' | 'TARJETA' | '');
+    this.historialService.cargarHistorial(1);
+  }
+
+  filtroTipoCambio(valor: string) {
+    this.historialService.historialFiltroTipo.set(valor as TipoEvento | '');
+    this.historialService.cargarHistorial(1);
+  }
+
+  buscarPorCliente() {
+    this.historialService.historialFiltroCliente.set(this.clienteBusqueda().trim());
+    this.historialService.cargarHistorial(1);
+  }
+
+  limpiarBusquedaCliente() {
+    this.clienteBusqueda.set('');
+    this.historialService.historialFiltroCliente.set('');
+    this.historialService.cargarHistorial(1);
+  }
+
   // --- Edición de una fila ya guardada (corrección de monto/pago/
   // nombre/fecha, protegida con una clave aparte de la de acceso) ---
 

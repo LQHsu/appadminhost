@@ -89,6 +89,9 @@ export interface ReporteMensual {
   totalIngresos: number;
   efectivo: number;
   tarjeta: number;
+  // Suma de lo que de verdad depositó el procesador de tarjeta en este
+  // periodo (montoNeto) — null si nadie lo ha capturado todavía.
+  tarjetaNeta: number | null;
   numeroHuespedes: number;
 }
 
@@ -99,6 +102,7 @@ export interface ReporteMesAnual {
   totalIngresos: number;
   efectivo: number;
   tarjeta: number;
+  tarjetaNeta: number | null;
   numeroHuespedes: number;
 }
 
@@ -109,6 +113,7 @@ export interface ReporteAnual {
     totalIngresos: number;
     efectivo: number;
     tarjeta: number;
+    tarjetaNeta: number | null;
     numeroHuespedes: number;
   };
 }
@@ -124,6 +129,7 @@ export interface ReporteRango {
     totalIngresos: number;
     efectivo: number;
     tarjeta: number;
+    tarjetaNeta: number | null;
     numeroHuespedes: number;
   };
   filas: Historial[];

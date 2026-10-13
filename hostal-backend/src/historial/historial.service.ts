@@ -1,9 +1,9 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, DataSource, In, MoreThan, Repository } from 'typeorm';
+import { Between, DataSource, FindOptionsWhere, In, MoreThan, Raw, Repository } from 'typeorm';
 import { Historial, TipoEvento } from './entities/historial.entity';
 import { Ingreso, ConceptoIngreso } from './entities/ingreso.entity';
-import { Registro } from '../registros/entities/registro.entity';
+import { Registro, MetodoPago } from '../registros/entities/registro.entity';
 import { CanalVenta } from '../canales-venta/entities/canal-venta.entity';
 import { ConceptoExtra } from '../conceptos-extra/entities/concepto-extra.entity';
 import { UpdateHistorialDto } from './dto/update-historial.dto';
@@ -251,8 +251,44 @@ export class HistorialService {
   // Paginado, más reciente primero. Se ordena también por `id` además
   // de `fechaEvento` (que ya se puede editar y puede repetirse entre
   // filas) para que el orden entre páginas sea estable.
-  async findAll(page = 1, limit = 20) {
+  async findAll(
+    page = 1,
+    limit = 20,
+    filtros?: { metodoPago?: MetodoPago; tipo?: TipoEvento; cliente?: string },
+  ) {
+    const where: FindOptionsWhere<Historial> = {};
+
+    if (filtros?.tipo) {
+      where.tipo = filtros.tipo;
+    }
+
+    if (filtros?.cliente) {
+      // LOWER(...) LIKE LOWER(...) en vez de ILike: ILike solo existe
+      // en Postgres, y en local se corre contra sqlite — esta forma
+      // funciona igual en ambos motores.
+      where.nombreCliente = Raw((alias) => `LOWER(${alias}) LIKE LOWER(:cliente)`, {
+        cliente: `%${filtros.cliente}%`,
+      });
+    }
+
+    if (filtros?.metodoPago) {
+      // No se filtra por Historial.metodoPago (solo refleja la PRIMERA
+      // línea de un pago dividido) — se busca qué filas tienen AL
+      // MENOS una línea de Ingreso con este método, para que un cobro
+      // mitad efectivo mitad tarjeta aparezca en ambos filtros.
+      const ingresosConMetodo = await this.ingresoRepo.find({
+        where: { metodoPago: filtros.metodoPago },
+        relations: { historial: true },
+      });
+      const idsConMetodo = [...new Set(ingresosConMetodo.map((i) => i.historial.id))];
+      if (idsConMetodo.length === 0) {
+        return { data: [], total: 0, page, limit };
+      }
+      where.id = In(idsConMetodo);
+    }
+
     const [filas, total] = await this.historialRepo.findAndCount({
+      where,
       order: { fechaEvento: 'DESC', id: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
@@ -282,10 +318,19 @@ export class HistorialService {
       .filter((i) => i.metodoPago === 'TARJETA')
       .reduce((sum, i) => sum + Number(i.cantidad), 0);
 
+    // Neto = lo que de verdad depositó el procesador, ya con su
+    // comisión descontada — solo cuenta lo que alguien capturó al
+    // editar (montoNeto no nulo); null si nadie lo ha capturado
+    // todavía en este rango, para no confundirlo con "neto = $0".
+    const tarjetaConNeto = ingresos.filter((i) => i.metodoPago === 'TARJETA' && i.montoNeto !== null);
+    const tarjetaNeta =
+      tarjetaConNeto.length > 0 ? tarjetaConNeto.reduce((sum, i) => sum + Number(i.montoNeto), 0) : null;
+
     return {
       totalIngresos: efectivo + tarjeta,
       efectivo,
       tarjeta,
+      tarjetaNeta,
       numeroHuespedes: this.numeroHuespedes(filasHistorial),
     };
   }
