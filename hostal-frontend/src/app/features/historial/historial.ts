@@ -99,6 +99,16 @@ export class HistorialComponent implements OnInit {
     return [h.metodoPago];
   }
 
+  // Suma el monto neto (ya con la comisión del procesador descontada)
+  // de las líneas TARJETA de esta fila — null si ninguna lo tiene
+  // capturado todavía (se llena al editar, no se sabe de antemano).
+  montoNetoTarjeta(h: Historial): number | null {
+    if (!h.pagos) return null;
+    const netos = h.pagos.filter((p) => p.metodoPago === 'TARJETA' && p.montoNeto !== null);
+    if (netos.length === 0) return null;
+    return netos.reduce((s, p) => s + (p.montoNeto ?? 0), 0);
+  }
+
   // Columna "Comentario": arma texto legible a partir de las líneas de
   // Ingreso que tengan algo que mostrar — cobros extra/multa (con su
   // concepto/unidades/nota) O una línea de hospedaje normal a la que

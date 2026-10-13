@@ -81,6 +81,7 @@
               <th class="py-2 pr-3">Noches</th>
               <th class="py-2 pr-3">Documento de identidad</th>
               <th class="py-2 pr-3">Método de pago</th>
+              <th class="py-2 pr-3">Neto tarjeta</th>
               <th class="py-2 pr-3">Atendió</th>
               <th class="py-2 pr-3">Canal de venta</th>
               <th class="py-2 pr-3">Comentario</th>
@@ -123,6 +124,9 @@
                     <span class="block">{{ linea }}</span>
                   }
                 </td>
+                <td class="py-2 pr-3 border-b border-slate-200">
+                  {{ montoNetoTarjeta(f) !== null ? (montoNetoTarjeta(f) | currency: 'MXN') : '—' }}
+                </td>
                 <td class="py-2 pr-3 border-b border-slate-200">{{ f.atendio }}</td>
                 <td class="py-2 pr-3 border-b border-slate-200">{{ f.canalVentaNombre ?? '—' }}</td>
                 <td class="py-2 pr-3 border-b border-slate-200">
@@ -139,7 +143,7 @@
             <tr class="border-t-2 border-slate-300 font-semibold text-slate-800">
               <td class="py-2 pr-3" colspan="6">Total del periodo</td>
               <td class="py-2 pr-3">{{ r.resumen.totalIngresos | currency: 'MXN' }}</td>
-              <td colspan="8"></td>
+              <td colspan="9"></td>
             </tr>
           </tfoot>
         </table>

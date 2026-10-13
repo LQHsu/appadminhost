@@ -72,6 +72,7 @@
               <th class="py-2 pr-3">Noches</th>
               <th class="py-2 pr-3">Documento de identidad</th>
               <th class="py-2 pr-3">Método de pago</th>
+              <th class="py-2 pr-3">Neto tarjeta</th>
               <th class="py-2 pr-3">Atendió</th>
               <th class="py-2 pr-3">Canal de venta</th>
               <th class="py-2 pr-3">Comentario</th>
@@ -108,6 +109,9 @@
                   @for (linea of desglosePagos(h); track linea) {
                     <span class="block">{{ linea }}</span>
                   }
+                </td>
+                <td class="py-2 pr-3">
+                  {{ montoNetoTarjeta(h) !== null ? (montoNetoTarjeta(h) | currency: 'MXN') : '—' }}
                 </td>
                 <td class="py-2 pr-3">{{ h.atendio }}</td>
                 <td class="py-2 pr-3">{{ h.canalVentaNombre ?? '—' }}</td>

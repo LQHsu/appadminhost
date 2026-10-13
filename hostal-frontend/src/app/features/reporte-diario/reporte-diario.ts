@@ -244,6 +244,16 @@ export class ReporteDiario implements OnInit {
     return [f.metodoPago];
   }
 
+  // Misma lógica que historial.ts: suma el monto neto (ya con la
+  // comisión descontada) de las líneas TARJETA de esta fila — null si
+  // ninguna lo tiene capturado todavía.
+  montoNetoTarjeta(f: Historial): number | null {
+    if (!f.pagos) return null;
+    const netos = f.pagos.filter((p) => p.metodoPago === 'TARJETA' && p.montoNeto !== null);
+    if (netos.length === 0) return null;
+    return netos.reduce((s, p) => s + (p.montoNeto ?? 0), 0);
+  }
+
   // Misma lógica que historial.ts: arma texto legible a partir de las
   // líneas que tengan algo que mostrar — cobros extra/multa (con
   // concepto/unidades/nota) o una línea de hospedaje con nota (al
@@ -333,13 +343,20 @@ export class ReporteDiario implements OnInit {
       // un evento) — así "EFECTIVO: $200 | TARJETA: $50" refleja el
       // total real de esa reservación, no solo de un movimiento suyo.
       const montosPorMetodo = new Map<string, number>();
+      // Suma el monto neto (ya con la comisión descontada) de todas
+      // las líneas TARJETA de la reserva — null mientras nadie lo haya
+      // capturado al editar, para no confundirlo con "neto = $0".
+      let netoTarjeta: number | null = null;
       for (const f of eventosConCobro) {
         const pagos =
           f.pagos && f.pagos.length > 0
             ? f.pagos
-            : [{ metodoPago: f.metodoPago, cantidad: Number(f.totalCobrado) }];
+            : [{ metodoPago: f.metodoPago, cantidad: Number(f.totalCobrado), montoNeto: null }];
         for (const p of pagos) {
           montosPorMetodo.set(p.metodoPago, (montosPorMetodo.get(p.metodoPago) ?? 0) + Number(p.cantidad));
+          if (p.metodoPago === 'TARJETA' && p.montoNeto !== null && p.montoNeto !== undefined) {
+            netoTarjeta = (netoTarjeta ?? 0) + Number(p.montoNeto);
+          }
         }
       }
       const metodoPago = Array.from(montosPorMetodo.entries())
@@ -364,6 +381,7 @@ export class ReporteDiario implements OnInit {
         Noches: noches,
         'Documento de identidad': base.documentoIdentidad,
         'Método de pago': metodoPago,
+        'Neto tarjeta': netoTarjeta !== null ? netoTarjeta : '',
         Atendió: atendieron.join(', '),
         'Canal de venta': base.canalVentaNombre ?? '',
         Comentario: comentario.join(' | '),
