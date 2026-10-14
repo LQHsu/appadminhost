@@ -167,8 +167,10 @@ export class RegistroForm implements OnInit {
 
   // --- Datos para el resumen del modal de confirmación ---
 
-  // Igual que hace el backend: noches = días de calendario que abarca
-  // el periodo capturado, redondeado hacia arriba. Puramente para
+  // Igual que hace el backend: noches = días de calendario entre el
+  // día de entrada y el día de salida (medianoche a medianoche), no
+  // las horas exactas que pasó — así alguien que entra a las 10am y
+  // sale al otro día a las 12pm paga 1 noche, no 2. Puramente para
   // mostrarle al usuario cuánto se le va a cobrar antes de confirmar;
   // el backend vuelve a calcularlo con la misma fórmula al guardar.
   nochesCalculadas(): number {
@@ -177,7 +179,9 @@ export class RegistroForm implements OnInit {
     const inicio = new Date(checkIn);
     const fin = new Date(`${checkOutFecha}T12:00:00`);
     if (fin <= inicio) return 0;
-    return Math.max(1, Math.ceil((fin.getTime() - inicio.getTime()) / MS_POR_DIA));
+    const medianocheInicio = new Date(`${checkIn.slice(0, 10)}T00:00:00`);
+    const medianocheFin = new Date(`${checkOutFecha}T00:00:00`);
+    return Math.max(1, Math.round((medianocheFin.getTime() - medianocheInicio.getTime()) / MS_POR_DIA));
   }
 
   checkOutPreview(): Date | null {

@@ -11,7 +11,7 @@ import { Historial, TipoEvento } from '../historial/entities/historial.entity';
 import { Ingreso, ConceptoIngreso } from '../historial/entities/ingreso.entity';
 import { CanalVenta } from '../canales-venta/entities/canal-venta.entity';
 import { ConceptoExtra } from '../conceptos-extra/entities/concepto-extra.entity';
-import { medioDiaHostal, fechaYMDHostal } from '../common/zona-horaria';
+import { medioDiaHostal, medianocheHostal, fechaYMDHostal, UN_DIA_MS } from '../common/zona-horaria';
 
 export type Status = 'VIGENTE' | 'PENDIENTE' | 'RENOVADO' | 'NO';
 
@@ -130,11 +130,19 @@ export class RegistrosService {
       throw new BadRequestException('La fecha de salida debe ser posterior al check-in');
     }
 
-    // "Noches" ya no es un input: se calcula del periodo real
-    // capturado (días de calendario que abarca, redondeado hacia
-    // arriba), así el cobro siempre coincide con las fechas.
-    const MS_POR_DIA = 1000 * 60 * 60 * 24;
-    const noches = Math.max(1, Math.ceil((checkOutEstimado.getTime() - checkIn.getTime()) / MS_POR_DIA));
+    // "Noches" ya no es un input: se calcula contando días de hostal
+    // (medianoche a medianoche hora del hostal) entre el día en que
+    // entró y el día de salida — no las horas exactas que pasó. Así,
+    // alguien que entra a las 10am y sale al otro día a las 12pm (26h)
+    // paga 1 noche, no 2: lo que cuenta es cuántos cortes de día cruza,
+    // no la duración exacta en horas.
+    const noches = Math.max(
+      1,
+      Math.round(
+        (medianocheHostal(dto.checkOutFecha).getTime() - medianocheHostal(fechaYMDHostal(checkIn)).getTime()) /
+          UN_DIA_MS,
+      ),
+    );
 
     const otroCobro = dto.otroCobro ?? 0;
     const totalACobrar = dto.camasSolicitadas * dto.costoPorCama * noches + otroCobro;
