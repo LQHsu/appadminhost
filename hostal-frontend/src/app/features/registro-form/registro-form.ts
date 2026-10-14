@@ -82,6 +82,16 @@ export class RegistroForm implements OnInit {
     this.habitacionesService.cargarHabitaciones();
     this.habitacionesService.cargarDisponibilidad();
     this.canalVentaService.cargarCanales();
+
+    // Al elegir habitación, se toma su tarifa fija si existe; si no
+    // tiene una definida, se deja el default (150) para que el
+    // usuario lo ajuste a mano.
+    this.form.controls.habitacionId.valueChanges.subscribe((id) => {
+      const habitacion = this.habitacionesService.habitaciones().find((h) => h.id === id);
+      if (habitacion?.costoPorCama) {
+        this.form.controls.costoPorCama.setValue(habitacion.costoPorCama);
+      }
+    });
   }
 
   mostrarConfirmacion = signal(false);
