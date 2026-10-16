@@ -170,11 +170,11 @@
                 <span class="text-slate-600">{{ valor | currency: 'MXN' : 'symbol' : '1.0-0' }}</span>
                 <input
                   type="number" min="0" step="1"
-                  [ngModel]="cantidadDe(valor)"
-                  (ngModelChange)="actualizarCantidadDenominacion(valor, $event)"
+                  [ngModel]="cantidadDe('BILLETE', valor)"
+                  (ngModelChange)="actualizarCantidadDenominacion('BILLETE', valor, $event)"
                   class="w-20 rounded border-slate-300 text-sm"
                 />
-                <span class="text-slate-500 w-24 text-right">{{ subtotalDe(valor) | currency: 'MXN' }}</span>
+                <span class="text-slate-500 w-24 text-right">{{ subtotalDe('BILLETE', valor) | currency: 'MXN' }}</span>
               </div>
             }
           </div>
@@ -187,11 +187,11 @@
                 <span class="text-slate-600">{{ valor | currency: 'MXN' }}</span>
                 <input
                   type="number" min="0" step="1"
-                  [ngModel]="cantidadDe(valor)"
-                  (ngModelChange)="actualizarCantidadDenominacion(valor, $event)"
+                  [ngModel]="cantidadDe('MONEDA', valor)"
+                  (ngModelChange)="actualizarCantidadDenominacion('MONEDA', valor, $event)"
                   class="w-20 rounded border-slate-300 text-sm"
                 />
-                <span class="text-slate-500 w-24 text-right">{{ subtotalDe(valor) | currency: 'MXN' }}</span>
+                <span class="text-slate-500 w-24 text-right">{{ subtotalDe('MONEDA', valor) | currency: 'MXN' }}</span>
               </div>
             }
           </div>
@@ -293,9 +293,9 @@
            ya se haya guardado el corte). -->
       <div class="solo-imprimir text-sm text-slate-700 space-y-1 mt-4">
         <p class="font-semibold">Conteo de efectivo</p>
-        @for (d of denominaciones(); track d.valor) {
+        @for (d of denominaciones(); track d.tipo + d.valor) {
           @if (d.cantidad > 0) {
-            <p>{{ d.valor | currency: 'MXN' }} x {{ d.cantidad }} = {{ (d.valor * d.cantidad) | currency: 'MXN' }}</p>
+            <p>{{ d.valor | currency: 'MXN' }} ({{ d.tipo === 'BILLETE' ? 'billete' : 'moneda' }}) x {{ d.cantidad }} = {{ (d.valor * d.cantidad) | currency: 'MXN' }}</p>
           }
         }
         <p>Total contado: <strong>{{ totalContado() | currency: 'MXN' }}</strong></p>

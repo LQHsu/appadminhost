@@ -1,4 +1,10 @@
+// El $20 existe como billete y como moneda — tipo + valor identifica
+// la línea (valor solo no alcanza, ya que billete y moneda del mismo
+// valor serían indistinguibles).
+export type TipoDenominacion = 'BILLETE' | 'MONEDA';
+
 export interface Denominacion {
+  tipo: TipoDenominacion;
   valor: number;
   cantidad: number;
 }

@@ -6,7 +6,7 @@ import { HistorialService } from '../../core/services/historial.service';
 import { CorteCajaService } from '../../core/services/corte-caja.service';
 import { AcuseRecepcionService } from '../../core/services/acuse-recepcion.service';
 import { Historial, TipoEvento } from '../../core/models/historial.model';
-import { Denominacion } from '../../core/models/corte-caja.model';
+import { Denominacion, TipoDenominacion } from '../../core/models/corte-caja.model';
 import { TipoDocumento } from '../../core/models/acuse-recepcion.model';
 
 function hoyIso(): string {
@@ -36,7 +36,10 @@ const BILLETES = [1000, 500, 200, 100, 50, 20];
 const MONEDAS = [20, 10, 5, 2, 1, 0.5];
 
 function denominacionesVacias(): Denominacion[] {
-  return [...BILLETES, ...MONEDAS].map((valor) => ({ valor, cantidad: 0 }));
+  return [
+    ...BILLETES.map((valor) => ({ tipo: 'BILLETE' as const, valor, cantidad: 0 })),
+    ...MONEDAS.map((valor) => ({ tipo: 'MONEDA' as const, valor, cantidad: 0 })),
+  ];
 }
 
 // Antes era "reporte por mes con una fila por día"; ahora es un
@@ -115,16 +118,21 @@ export class ReporteDiario implements OnInit {
     this.acuseRecepcionService.cargarAcuses(this.desde(), this.hasta());
   }
 
-  actualizarCantidadDenominacion(valor: number, cantidad: number) {
-    this.denominaciones.set(this.denominaciones().map((d) => (d.valor === valor ? { ...d, cantidad } : d)));
+  // tipo + valor identifica la línea — el $20 existe como billete y
+  // como moneda, y filtrar solo por valor actualizaba/leía ambas como
+  // si fueran la misma.
+  actualizarCantidadDenominacion(tipo: TipoDenominacion, valor: number, cantidad: number) {
+    this.denominaciones.set(
+      this.denominaciones().map((d) => (d.tipo === tipo && d.valor === valor ? { ...d, cantidad } : d)),
+    );
   }
 
-  cantidadDe(valor: number): number {
-    return this.denominaciones().find((d) => d.valor === valor)?.cantidad ?? 0;
+  cantidadDe(tipo: TipoDenominacion, valor: number): number {
+    return this.denominaciones().find((d) => d.tipo === tipo && d.valor === valor)?.cantidad ?? 0;
   }
 
-  subtotalDe(valor: number): number {
-    return valor * this.cantidadDe(valor);
+  subtotalDe(tipo: TipoDenominacion, valor: number): number {
+    return valor * this.cantidadDe(tipo, valor);
   }
 
   guardarCorte() {
@@ -391,6 +399,24 @@ export class ReporteDiario implements OnInit {
     const r = this.historialService.reporteDiario();
     if (!r) return;
 
+    // Un checkout sin cobro (el caso normal) casi siempre cae en un día
+    // distinto al de su check-in/última renovación — si se le diera su
+    // propia fila, se vería como una reserva nueva con $0, duplicando
+    // visualmente al mismo huésped. En vez de eso, si esa reserva ya
+    // tiene otro evento en el reporte, el checkout no genera fila
+    // propia: su fecha de salida se concatena más abajo a la última
+    // fila ya generada de esa reserva. Si el checkout es lo ÚNICO que
+    // aparece de esa reserva en el rango (su check-in quedó fuera), sí
+    // se queda con su propia fila — ahí no hay nada con qué concatenar
+    // y omitirla perdería el dato de esa salida.
+    const reservasConOtroEvento = new Set<number>();
+    for (const f of r.filas) {
+      if (!(f.tipo === 'CHECKOUT' && Number(f.totalCobrado) === 0)) {
+        reservasConOtroEvento.add(f.registroOriginalId);
+      }
+    }
+    const checkoutsSinCobroConcatenar = new Map<number, Historial>();
+
     // Primero se separa por DÍA (hora del hostal, no la fecha del
     // servidor) y dentro de cada día se consolida por reserva — así un
     // rango de varios días no mezcla en una sola fila cosas que
@@ -400,6 +426,10 @@ export class ReporteDiario implements OnInit {
     // columna "Evento" porque cada reserva es una sola fila.
     const porDia = new Map<string, Historial[]>();
     for (const f of r.filas) {
+      if (f.tipo === 'CHECKOUT' && Number(f.totalCobrado) === 0 && reservasConOtroEvento.has(f.registroOriginalId)) {
+        checkoutsSinCobroConcatenar.set(f.registroOriginalId, f);
+        continue;
+      }
       const dia = fechaYMDHostal(new Date(f.fechaEvento));
       const lista = porDia.get(dia) ?? [];
       lista.push(f);
@@ -407,6 +437,7 @@ export class ReporteDiario implements OnInit {
     }
 
     const filas: Record<string, string | number>[] = [];
+    const ultimaFilaPorReserva = new Map<number, Record<string, string | number>>();
     for (const [dia, eventosDelDia] of porDia) {
       const [anio, mes, diaNum] = dia.split('-').map(Number);
       const etiquetaDia = new Date(anio, mes - 1, diaNum).toLocaleDateString('es-MX', {
@@ -434,7 +465,19 @@ export class ReporteDiario implements OnInit {
         porReserva.set(f.registroOriginalId, lista);
       }
       for (const eventos of porReserva.values()) {
-        filas.push(this.filaDeReserva(eventos));
+        const fila = this.filaDeReserva(eventos);
+        filas.push(fila);
+        ultimaFilaPorReserva.set(eventos[0].registroOriginalId, fila);
+      }
+    }
+
+    // Ahora sí se concatena cada checkout sin cobro a la última fila de
+    // su reserva (por orden cronológico, ya que r.filas viene ordenado
+    // por fechaEvento ascendente).
+    for (const [registroOriginalId, checkoutEvento] of checkoutsSinCobroConcatenar) {
+      const fila = ultimaFilaPorReserva.get(registroOriginalId);
+      if (fila && checkoutEvento.checkOut) {
+        fila['Check-out'] = new Date(checkoutEvento.checkOut).toLocaleString('es-MX');
       }
     }
 
