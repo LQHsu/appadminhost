@@ -49,6 +49,9 @@
   .solo-imprimir {
     display: block !important;
   }
+  .total-periodo-print {
+    display: flex !important;
+  }
   .fecha-grande-en-impresion {
     font-size: 1.5rem !important;
     font-weight: 600 !important;
@@ -57,5 +60,11 @@
 }
 
 .solo-imprimir {
+  display: none;
+}
+
+/* Solo visible al imprimir (el <tfoot> se repetía en cada página;
+   este div reemplaza al total del periodo y aparece una sola vez). */
+.total-periodo-print {
   display: none;
 }

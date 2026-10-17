@@ -140,14 +140,12 @@
               </tr>
             }
           </tbody>
-          <tfoot>
-            <tr class="border-t-2 border-slate-300 font-semibold text-slate-800">
-              <td class="py-2 pr-3" colspan="5">Total del periodo</td>
-              <td class="py-2 pr-3">{{ r.resumen.totalIngresos | currency: 'MXN' }}</td>
-              <td colspan="9"></td>
-            </tr>
-          </tfoot>
         </table>
+      </div>
+      <!-- Total del periodo: fuera de la tabla para que NO se repita en cada página al imprimir -->
+      <div class="total-periodo-print w-full text-sm font-semibold text-slate-800 border-t-2 border-slate-300 flex gap-3 py-2">
+        <span class="flex-1">Total del periodo</span>
+        <span>{{ r.resumen.totalIngresos | currency: 'MXN' }}</span>
       </div>
     }
 
