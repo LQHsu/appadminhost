@@ -6,6 +6,7 @@ import { HistorialService } from '../../core/services/historial.service';
 import { CorteCajaService } from '../../core/services/corte-caja.service';
 import { AcuseRecepcionService } from '../../core/services/acuse-recepcion.service';
 import { Historial, TipoEvento } from '../../core/models/historial.model';
+import { MetodoPago } from '../../core/models/registro.model';
 import { Denominacion, TipoDenominacion } from '../../core/models/corte-caja.model';
 import { TipoDocumento } from '../../core/models/acuse-recepcion.model';
 
@@ -117,6 +118,46 @@ export class ReporteDiario implements OnInit {
     this.corteCajaService.cargarCortes(this.desde(), this.hasta());
     this.acuseRecepcionService.cargarAcuses(this.desde(), this.hasta());
   }
+
+  // --- Filtros de la tabla de movimientos (mismo criterio que
+  // "Historial de ingresos") — a diferencia de ahí, aquí ya se tienen
+  // TODAS las filas del rango en memoria (reporteDiario no pagina), así
+  // que el filtrado es en el navegador, sin pedirle nada al backend.
+  // Solo afectan la tabla/PDF/Excel — los recuadros de resumen y la
+  // conciliación del corte de caja siguen con el total REAL del rango,
+  // filtrado o no, porque de eso depende que la conciliación de
+  // efectivo tenga sentido.
+  filtroMetodoPago = signal<MetodoPago | ''>('');
+  filtroTipo = signal<TipoEvento | ''>('');
+  clienteBusqueda = signal('');
+
+  filasFiltradas = computed(() => {
+    const r = this.historialService.reporteDiario();
+    if (!r) return [];
+    const metodo = this.filtroMetodoPago();
+    const tipo = this.filtroTipo();
+    const cliente = this.clienteBusqueda().trim().toLowerCase();
+
+    return r.filas.filter((f) => {
+      if (tipo && f.tipo !== tipo) return false;
+      if (cliente && !f.nombreCliente.toLowerCase().includes(cliente)) return false;
+      if (metodo) {
+        // Igual que el filtro de método de pago del historial: se
+        // busca en TODAS las líneas de pago de la fila, no solo en
+        // `metodoPago` (que solo refleja la primera) — así un cobro
+        // dividido mitad efectivo mitad tarjeta aparece en ambos
+        // filtros.
+        const metodos = f.pagos && f.pagos.length > 0 ? f.pagos.map((p) => p.metodoPago) : [f.metodoPago];
+        if (!metodos.includes(metodo)) return false;
+      }
+      return true;
+    });
+  });
+
+  // Total de lo que se ve actualmente en la tabla (ya filtrado) — el
+  // pie de la tabla muestra este número, no el total real del rango
+  // (ese sigue en los recuadros de resumen de arriba).
+  totalFiltrado = computed(() => this.filasFiltradas().reduce((s, f) => s + Number(f.totalCobrado), 0));
 
   // tipo + valor identifica la línea — el $20 existe como billete y
   // como moneda, y filtrar solo por valor actualizaba/leía ambas como
@@ -399,6 +440,11 @@ export class ReporteDiario implements OnInit {
     const r = this.historialService.reporteDiario();
     if (!r) return;
 
+    // Las mismas filas que se ven en la tabla (ya con los filtros
+    // aplicados) — el "Resumen" sigue saliendo de r.resumen, sin
+    // filtrar, más abajo.
+    const filasBase = this.filasFiltradas();
+
     // Un checkout sin cobro (el caso normal) casi siempre cae en un día
     // distinto al de su check-in/última renovación — si se le diera su
     // propia fila, se vería como una reserva nueva con $0, duplicando
@@ -410,7 +456,7 @@ export class ReporteDiario implements OnInit {
     // se queda con su propia fila — ahí no hay nada con qué concatenar
     // y omitirla perdería el dato de esa salida.
     const reservasConOtroEvento = new Set<number>();
-    for (const f of r.filas) {
+    for (const f of filasBase) {
       if (!(f.tipo === 'CHECKOUT' && Number(f.totalCobrado) === 0)) {
         reservasConOtroEvento.add(f.registroOriginalId);
       }
@@ -425,7 +471,7 @@ export class ReporteDiario implements OnInit {
     // propio día), y dentro de un mismo día ya no hace falta la
     // columna "Evento" porque cada reserva es una sola fila.
     const porDia = new Map<string, Historial[]>();
-    for (const f of r.filas) {
+    for (const f of filasBase) {
       if (f.tipo === 'CHECKOUT' && Number(f.totalCobrado) === 0 && reservasConOtroEvento.has(f.registroOriginalId)) {
         checkoutsSinCobroConcatenar.set(f.registroOriginalId, f);
         continue;

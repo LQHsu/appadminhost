@@ -64,9 +64,58 @@
       </div>
     </div>
 
+    <!-- Filtros de la tabla de movimientos — mismo criterio que
+         "Historial de ingresos", pero filtrando en el navegador (aquí
+         ya están todas las filas del rango, sin paginar). Solo afectan
+         la tabla/PDF/Excel, no los recuadros de resumen de arriba. -->
+    <div class="flex flex-wrap items-end gap-3 mb-4 no-imprimir">
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Método de pago</label>
+        <select
+          [ngModel]="filtroMetodoPago()"
+          (ngModelChange)="filtroMetodoPago.set($event)"
+          class="rounded border-slate-300 text-sm"
+        >
+          <option value="">Todos</option>
+          <option value="EFECTIVO">Efectivo</option>
+          <option value="TARJETA">Tarjeta</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Evento</label>
+        <select
+          [ngModel]="filtroTipo()"
+          (ngModelChange)="filtroTipo.set($event)"
+          class="rounded border-slate-300 text-sm"
+        >
+          <option value="">Todos</option>
+          <option value="CHECK_IN">Check-in</option>
+          <option value="RENOVACION">Renovación</option>
+          <option value="COBRO_EXTRA">Cobro extra</option>
+          <option value="CHECKOUT">Checkout</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Buscar cliente</label>
+        <input
+          type="text"
+          [ngModel]="clienteBusqueda()"
+          (ngModelChange)="clienteBusqueda.set($event)"
+          placeholder="Nombre del cliente"
+          class="rounded border-slate-300 text-sm"
+        />
+      </div>
+    </div>
+
     <!-- Tabla de movimientos del rango: nombre, evento, periodo, monto, cuarto -->
-    @if (r.filas.length === 0) {
-      <p class="text-slate-500 text-sm mb-6">No hay movimientos en este rango de fechas.</p>
+    @if (filasFiltradas().length === 0) {
+      <p class="text-slate-500 text-sm mb-6">
+        {{
+          filtroMetodoPago() || filtroTipo() || clienteBusqueda()
+            ? 'No hay movimientos que coincidan con el filtro.'
+            : 'No hay movimientos en este rango de fechas.'
+        }}
+      </p>
     } @else {
       <div class="overflow-x-auto mb-6">
         <table class="w-full text-sm text-left">
@@ -90,7 +139,7 @@
             </tr>
           </thead>
           <tbody>
-            @for (f of r.filas; track f.id) {
+            @for (f of filasFiltradas(); track f.id) {
               <tr
                 [class.oculto-en-impresion]="f.tipo === 'CHECKOUT' && !montoCobradoEn(f)"
               >
@@ -144,8 +193,10 @@
       </div>
       <!-- Total del periodo: fuera de la tabla para que NO se repita en cada página al imprimir -->
       <div class="total-periodo-print w-full text-sm font-semibold text-slate-800 border-t-2 border-slate-300 flex gap-3 py-2">
-        <span class="flex-1">Total del periodo</span>
-        <span>{{ r.resumen.totalIngresos | currency: 'MXN' }}</span>
+        <span class="flex-1">
+          Total {{ filtroMetodoPago() || filtroTipo() || clienteBusqueda() ? 'filtrado' : 'del periodo' }}
+        </span>
+        <span>{{ totalFiltrado() | currency: 'MXN' }}</span>
       </div>
     }
 
