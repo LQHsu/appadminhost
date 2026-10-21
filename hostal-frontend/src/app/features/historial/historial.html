@@ -24,7 +24,11 @@
         <div class="border rounded-lg p-3">
           <p class="text-xs text-slate-500">Ingresos totales</p>
           <p class="text-xl font-semibold text-slate-800">
-            {{ r.totalIngresos | currency: 'MXN' }}
+            {{ ingresosTotalesReales(r) | currency: 'MXN' }}
+          </p>
+          <p class="text-xs text-slate-500 mt-1">
+            Efectivo: {{ r.efectivo | currency: 'MXN' }} + Neto tarjeta:
+            {{ (r.tarjetaNeta ?? r.tarjeta) | currency: 'MXN' }}
           </p>
         </div>
         <div class="border rounded-lg p-3">

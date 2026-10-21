@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { HistorialService } from '../../core/services/historial.service';
 import { CanalVentaService } from '../../core/services/canal-venta.service';
 import { ConceptoExtraService } from '../../core/services/concepto-extra.service';
-import { Historial, TipoEvento } from '../../core/models/historial.model';
+import { Historial, TipoEvento, ReporteMensual } from '../../core/models/historial.model';
 import { ReporteAnual } from '../reporte-anual/reporte-anual';
 import { ReporteDiario } from '../reporte-diario/reporte-diario';
 import { ConfirmModal } from '../../shared/confirm-modal/confirm-modal/confirm-modal';
@@ -99,6 +99,16 @@ export class HistorialComponent implements OnInit {
 
   consultarReporte() {
     this.historialService.cargarReporteMensual(this.anio(), this.mes());
+  }
+
+  // Mismo criterio que en reporte-diario.ts: "Ingresos totales" cuenta
+  // lo que la tarjeta REALMENTE depositó (neto), no el bruto cobrado
+  // al huésped — la comisión del procesador nunca llega. Mientras
+  // nadie haya capturado el neto de ninguna línea, cae de regreso al
+  // bruto, para no mostrar un total menor al real solo por faltar
+  // conciliar.
+  ingresosTotalesReales(r: ReporteMensual): number {
+    return r.efectivo + (r.tarjetaNeta ?? r.tarjeta);
   }
 
   etiquetaTipo(tipo: TipoEvento): string {

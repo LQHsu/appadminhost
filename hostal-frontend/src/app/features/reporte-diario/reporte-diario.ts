@@ -87,6 +87,18 @@ export class ReporteDiario implements OnInit {
     return r && terminal !== null ? terminal - r.resumen.tarjeta : null;
   });
 
+  // "Ingresos totales" = efectivo + lo que la tarjeta REALMENTE
+  // depositó (neto), no el bruto cobrado al huésped — la comisión del
+  // procesador nunca llega, así que contarla como ingreso infla el
+  // total. Mientras nadie haya capturado el neto de ninguna línea
+  // (tarjetaNeta === null), cae de regreso al bruto, para no mostrar
+  // un total menor al real solo porque falta conciliar.
+  ingresosTotalesReales = computed(() => {
+    const r = this.historialService.reporteDiario();
+    if (!r) return 0;
+    return r.resumen.efectivo + (r.resumen.tarjetaNeta ?? r.resumen.tarjeta);
+  });
+
   // Nombres de quien entrega (cajero) y quien recibe dentro del hostal
   // — texto simple, no firma dibujada.
   entregadoA = signal('');
