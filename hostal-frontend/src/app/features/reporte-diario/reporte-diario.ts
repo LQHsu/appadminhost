@@ -464,9 +464,9 @@ export class ReporteDiario implements OnInit {
     // tiene otro evento en el reporte, el checkout no genera fila
     // propia: su fecha de salida se concatena más abajo a la última
     // fila ya generada de esa reserva. Si el checkout es lo ÚNICO que
-    // aparece de esa reserva en el rango (su check-in quedó fuera), sí
-    // se queda con su propia fila — ahí no hay nada con qué concatenar
-    // y omitirla perdería el dato de esa salida.
+    // aparece de esa reserva en el rango (su check-in quedó fuera), se
+    // omite: no aporta dinero, y su fila mostraría una fecha de entrada
+    // fuera del rango consultado. La salida en sí sigue en el historial.
     const reservasConOtroEvento = new Set<number>();
     for (const f of filasBase) {
       if (!(f.tipo === 'CHECKOUT' && Number(f.totalCobrado) === 0)) {
@@ -484,8 +484,10 @@ export class ReporteDiario implements OnInit {
     // columna "Evento" porque cada reserva es una sola fila.
     const porDia = new Map<string, Historial[]>();
     for (const f of filasBase) {
-      if (f.tipo === 'CHECKOUT' && Number(f.totalCobrado) === 0 && reservasConOtroEvento.has(f.registroOriginalId)) {
-        checkoutsSinCobroConcatenar.set(f.registroOriginalId, f);
+      if (f.tipo === 'CHECKOUT' && Number(f.totalCobrado) === 0) {
+        if (reservasConOtroEvento.has(f.registroOriginalId)) {
+          checkoutsSinCobroConcatenar.set(f.registroOriginalId, f);
+        }
         continue;
       }
       const dia = fechaYMDHostal(new Date(f.fechaEvento));
