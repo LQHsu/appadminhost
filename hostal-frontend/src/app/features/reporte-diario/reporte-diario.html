@@ -42,9 +42,17 @@
     <p class="text-sm text-slate-500 mb-4 fecha-grande-en-impresion">{{ rangoTexto() }}</p>
 
     <!-- Recuadros de resumen (mismo formato que el reporte mensual) -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+    <div class="grid grid-cols-2 sm:grid-cols-[1fr_1fr_1fr_1fr_auto] gap-4 mb-6">
       <div class="border rounded-lg p-3">
-        <p class="text-xs text-slate-500">Ingresos totales</p>
+        <p class="text-xs text-slate-500">Total bruto</p>
+        <p class="text-xl font-semibold text-slate-800">{{ r.resumen.efectivo + r.resumen.tarjeta | currency: 'MXN' }}</p>
+        <p class="text-xs text-slate-500 mt-1">
+          Efectivo: {{ r.resumen.efectivo | currency: 'MXN' }} + Tarjeta bruto:
+          {{ r.resumen.tarjeta | currency: 'MXN' }}
+        </p>
+      </div>
+      <div class="border rounded-lg p-3">
+        <p class="text-xs text-slate-500">Total neto</p>
         <p class="text-xl font-semibold text-slate-800">{{ ingresosTotalesReales() | currency: 'MXN' }}</p>
         <p class="text-xs text-slate-500 mt-1">
           Efectivo: {{ r.resumen.efectivo | currency: 'MXN' }} + Neto tarjeta:
@@ -62,9 +70,9 @@
           Neto: {{ r.resumen.tarjetaNeta !== null ? (r.resumen.tarjetaNeta | currency: 'MXN') : '—' }}
         </p>
       </div>
-      <div class="border rounded-lg p-3">
-        <p class="text-xs text-slate-500">N° huéspedes</p>
-        <p class="text-xl font-semibold text-slate-800">{{ r.resumen.numeroHuespedes }}</p>
+      <div class="border rounded-lg px-3 py-2 self-start">
+        <p class="text-xs text-slate-500">Huéspedes</p>
+        <p class="text-base font-semibold text-slate-800">{{ r.resumen.numeroHuespedes }}</p>
       </div>
     </div>
 

@@ -20,9 +20,19 @@
     </div>
 
     @if (historialService.reporte(); as r) {
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div class="grid grid-cols-2 sm:grid-cols-[1fr_1fr_1fr_1fr_auto] gap-4">
         <div class="border rounded-lg p-3">
-          <p class="text-xs text-slate-500">Ingresos totales</p>
+          <p class="text-xs text-slate-500">Total bruto</p>
+          <p class="text-xl font-semibold text-slate-800">
+            {{ r.efectivo + r.tarjeta | currency: 'MXN' }}
+          </p>
+          <p class="text-xs text-slate-500 mt-1">
+            Efectivo: {{ r.efectivo | currency: 'MXN' }} + Tarjeta bruto:
+            {{ r.tarjeta | currency: 'MXN' }}
+          </p>
+        </div>
+        <div class="border rounded-lg p-3">
+          <p class="text-xs text-slate-500">Total neto</p>
           <p class="text-xl font-semibold text-slate-800">
             {{ ingresosTotalesReales(r) | currency: 'MXN' }}
           </p>
@@ -46,9 +56,9 @@
             Neto: {{ r.tarjetaNeta !== null ? (r.tarjetaNeta | currency: 'MXN') : '—' }}
           </p>
         </div>
-        <div class="border rounded-lg p-3">
-          <p class="text-xs text-slate-500">N° huéspedes</p>
-          <p class="text-xl font-semibold text-slate-800">{{ r.numeroHuespedes }}</p>
+        <div class="border rounded-lg px-3 py-2 self-start">
+          <p class="text-xs text-slate-500">Huéspedes</p>
+          <p class="text-base font-semibold text-slate-800">{{ r.numeroHuespedes }}</p>
         </div>
       </div>
     }
