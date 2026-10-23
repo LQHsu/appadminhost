@@ -257,6 +257,13 @@ export class RegistrosService {
         relations: { habitacion: true, canalVenta: true },
       });
       if (!registro) throw new NotFoundException(`Registro ${id} no encontrado`);
+      // Un registro cerrado ya hizo checkout y liberó sus camas: renovarlo
+      // cobraría una estancia terminada. Un regreso es un check-in nuevo.
+      if (registro.cerrado) {
+        throw new BadRequestException(
+          'Este registro ya hizo checkout — no se puede renovar; crea un nuevo check-in',
+        );
+      }
       registro.renovar = renovar;
       // Si renueva, se recorre el checkout estimado los días indicados.
       if (renovar === Renovar.SI) {

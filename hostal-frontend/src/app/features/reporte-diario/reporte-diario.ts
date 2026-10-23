@@ -542,9 +542,11 @@ export class ReporteDiario implements OnInit {
     }
 
     const resumen = [
-      { Concepto: 'Ingresos totales', Monto: r.resumen.totalIngresos },
+      { Concepto: 'Total bruto', Monto: r.resumen.efectivo + r.resumen.tarjeta },
+      { Concepto: 'Total neto', Monto: this.ingresosTotalesReales() },
       { Concepto: 'Efectivo', Monto: r.resumen.efectivo },
-      { Concepto: 'Tarjeta', Monto: r.resumen.tarjeta },
+      { Concepto: 'Tarjeta (bruto)', Monto: r.resumen.tarjeta },
+      { Concepto: 'Tarjeta (neto)', Monto: r.resumen.tarjetaNeta ?? r.resumen.tarjeta },
       { Concepto: 'N° huéspedes', Monto: r.resumen.numeroHuespedes },
     ];
 

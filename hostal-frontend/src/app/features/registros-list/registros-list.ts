@@ -98,7 +98,8 @@ export class RegistrosList implements OnInit {
 
   confirmarAccion() {
     const pendiente = this.accionPendiente();
-    if (!pendiente) return;
+    // Si ya hay una petición en curso, un doble clic no debe duplicar el cobro.
+    if (!pendiente || this.enviando()) return;
 
     let accion$;
     switch (pendiente.tipo) {
